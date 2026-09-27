@@ -294,12 +294,35 @@ class WebServer {
       return;
     }
 
-    // 6. Web Dashboard UI: GET / or /index.html
-    if (path == '/' || path == '/index.html') {
+    // 6. Web Dashboard UI: GET / or /index.html or /portal.html
+    if (path == '/' || path == '/index.html' || path == '/portal.html') {
       request.response.headers.contentType = ContentType('text', 'html', charset: 'utf-8');
       request.response.write(_buildDashboardHtml());
       await request.response.close();
       return;
+    }
+
+    // 7. Static assets from web/ directory (e.g. /favicon.png, /manifest.json, /icons/...)
+    final webDir = Directory('web');
+    if (webDir.existsSync()) {
+      final sanitizedPath = path.startsWith('/') ? path.substring(1) : path;
+      final file = File('web/$sanitizedPath');
+      if (file.existsSync()) {
+        final ext = sanitizedPath.split('.').last.toLowerCase();
+        if (ext == 'png') {
+          request.response.headers.contentType = ContentType('image', 'png');
+        } else if (ext == 'json') {
+          request.response.headers.contentType = ContentType.json;
+        } else if (ext == 'html') {
+          request.response.headers.contentType = ContentType.html;
+        } else if (ext == 'js') {
+          request.response.headers.contentType = ContentType('application', 'javascript');
+        } else if (ext == 'css') {
+          request.response.headers.contentType = ContentType('text', 'css');
+        }
+        await file.openRead().pipe(request.response);
+        return;
+      }
     }
 
     // 404 Fallback
