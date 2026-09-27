@@ -14,6 +14,12 @@
       "program": "lib/main_desktop.dart"
     },
     {
+      "name": "ClipSync Web",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main_web.dart"
+    },
+    {
       "name": "ClipSync (Auto)",
       "request": "launch",
       "type": "dart",

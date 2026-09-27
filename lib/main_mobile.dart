@@ -1,13 +1,20 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/database/clipboard_database.dart';
 import 'core/providers/clipsync_providers.dart';
 import 'core/services/settings_service.dart';
+import 'main_web.dart' as web;
 import 'ui/screens/history_screen.dart';
 import 'ui/theme/app_theme.dart';
 
 void main() async {
+  if (kIsWeb) {
+    web.main();
+    return;
+  }
+
   WidgetsFlutterBinding.ensureInitialized();
 
   // Initialize SQLite for mobile
