@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/device_info.dart';
 import '../../core/network/sync_service.dart';
@@ -109,11 +110,15 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
           _buildDiscoveredSection(discoveredPeers, activePeer, syncStatus, syncService),
           const SizedBox(height: 20),
 
-          // 3. Manual Direct Connect Card
+          // 3. Local Web Portal Card (browser access)
+          _buildWebPortalCard(),
+          const SizedBox(height: 20),
+
+          // 4. Manual Direct Connect Card
           _buildManualConnectCard(),
           const SizedBox(height: 20),
 
-          // 4. This Device Information
+          // 5. This Device Information
           _buildThisDeviceInfoCard(settings, syncStatus),
         ],
       ),
@@ -450,6 +455,114 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
             _infoRow('Listening Port', settings.serverPort.toString()),
             _infoRow('mDNS Service', '_clipsync._tcp'),
             _infoRow('Device ID', settings.deviceId),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWebPortalCard() {
+    final webServer = ref.watch(webServerProvider);
+    final portalUrlAsync = ref.watch(webPortalUrlProvider);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.language_rounded, color: AppTheme.primaryLight, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Local Web Portal',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        webServer.isRunning
+                            ? 'Online • Port ${webServer.port} • ${webServer.clientCount} browser(s)'
+                            : 'Offline / Disabled',
+                        style: TextStyle(
+                          color: webServer.isRunning ? AppTheme.successColor : const Color(0xFF94A3B8),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (!webServer.isRunning)
+                  OutlinedButton(
+                    onPressed: () async {
+                      await webServer.start();
+                      setState(() {});
+                    },
+                    child: const Text('Start'),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Open this link in any browser (Chrome, Safari, Firefox) on the same Wi-Fi to sync clipboard entries without installing an app:',
+              style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12, height: 1.4),
+            ),
+            const SizedBox(height: 12),
+            portalUrlAsync.when(
+              data: (url) => Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0F172A),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.25)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.link_rounded, color: AppTheme.accentColor, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: SelectableText(
+                        url,
+                        style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.copy_rounded, size: 18),
+                      tooltip: 'Copy URL',
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: url));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Web Portal URL copied!')),
+                        );
+                      },
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.open_in_browser_rounded, size: 18),
+                      tooltip: 'Open in Browser',
+                      onPressed: () => webServer.openBrowser(),
+                    ),
+                  ],
+                ),
+              ),
+              loading: () => const LinearProgressIndicator(),
+              error: (_, __) => const Text('Could not determine local IP address', style: TextStyle(color: AppTheme.errorColor, fontSize: 12)),
+            ),
           ],
         ),
       ),

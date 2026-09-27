@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:clipsync/core/constants/app_constants.dart';
 import 'package:clipsync/core/models/clipboard_entry.dart';
 import 'package:clipsync/core/models/device_info.dart';
 import 'package:clipsync/core/models/sync_message.dart';
@@ -144,6 +145,14 @@ void main() {
       expect(fromJson.port, peer.port);
       expect(fromJson.platform, peer.platform);
       expect(fromJson.isConnected, true);
+    });
+  });
+
+  group('Web Dashboard Configuration Tests', () {
+    test('Default ports and constants are valid', () {
+      expect(AppConstants.defaultPort, 42880);
+      expect(AppConstants.defaultWebPort, 42881);
+      expect(AppConstants.serviceType, '_clipsync._tcp');
     });
   });
 }

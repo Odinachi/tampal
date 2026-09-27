@@ -59,6 +59,18 @@ class SettingsService {
     await _prefs.setInt(AppConstants.prefServerPort, port);
   }
 
+  int get webPort => _prefs.getInt(AppConstants.prefWebPort) ?? AppConstants.defaultWebPort;
+
+  Future<void> setWebPort(int port) async {
+    await _prefs.setInt(AppConstants.prefWebPort, port);
+  }
+
+  bool get webEnabled => _prefs.getBool(AppConstants.prefWebEnabled) ?? true;
+
+  Future<void> setWebEnabled(bool enabled) async {
+    await _prefs.setBool(AppConstants.prefWebEnabled, enabled);
+  }
+
   String? get lastPairedHost => _prefs.getString(AppConstants.prefLastPairedHost);
 
   int? get lastPairedPort => _prefs.getInt(AppConstants.prefLastPairedPort);

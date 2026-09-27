@@ -6,6 +6,7 @@ import '../models/clipboard_entry.dart';
 import '../models/device_info.dart';
 import '../network/discovery_service.dart';
 import '../network/sync_service.dart';
+import '../network/web_server.dart';
 import '../services/settings_service.dart';
 
 // -------------------------------------------------------------
@@ -51,6 +52,26 @@ final clipboardWatcherProvider = Provider<ClipboardWatcher>((ref) {
   );
   ref.onDispose(() => watcher.dispose());
   return watcher;
+});
+
+final webServerProvider = Provider<WebServer>((ref) {
+  final settings = ref.watch(settingsServiceProvider);
+  final db = ref.watch(clipboardDatabaseProvider);
+  final syncService = ref.watch(syncServiceProvider);
+  final watcher = ref.watch(clipboardWatcherProvider);
+  final server = WebServer(
+    settings: settings,
+    db: db,
+    syncService: syncService,
+    watcher: watcher,
+  );
+  ref.onDispose(() => server.stop());
+  return server;
+});
+
+final webPortalUrlProvider = FutureProvider<String>((ref) async {
+  final server = ref.watch(webServerProvider);
+  return await server.getPortalUrl();
 });
 
 // -------------------------------------------------------------

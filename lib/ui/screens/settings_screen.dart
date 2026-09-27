@@ -13,9 +13,11 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   late TextEditingController _nameController;
   late TextEditingController _portController;
+  late TextEditingController _webPortController;
   late int _retentionLimit;
   late int _retentionDays;
   late bool _autoSync;
+  late bool _webEnabled;
 
   @override
   void initState() {
@@ -23,30 +25,46 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final settings = ref.read(settingsServiceProvider);
     _nameController = TextEditingController(text: settings.deviceName);
     _portController = TextEditingController(text: settings.serverPort.toString());
+    _webPortController = TextEditingController(text: settings.webPort.toString());
     _retentionLimit = settings.retentionLimit;
     _retentionDays = settings.retentionDays;
     _autoSync = settings.autoSync;
+    _webEnabled = settings.webEnabled;
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     _portController.dispose();
+    _webPortController.dispose();
     super.dispose();
   }
 
   Future<void> _saveSettings() async {
     final settings = ref.read(settingsServiceProvider);
     final db = ref.read(clipboardDatabaseProvider);
+    final webServer = ref.read(webServerProvider);
 
     await settings.setDeviceName(_nameController.text.trim());
     final port = int.tryParse(_portController.text.trim());
     if (port != null && port > 1024 && port < 65535) {
       await settings.setServerPort(port);
     }
+    final webPort = int.tryParse(_webPortController.text.trim());
+    if (webPort != null && webPort > 1024 && webPort < 65535) {
+      await settings.setWebPort(webPort);
+    }
     await settings.setRetentionLimit(_retentionLimit);
     await settings.setRetentionDays(_retentionDays);
     await settings.setAutoSync(_autoSync);
+    await settings.setWebEnabled(_webEnabled);
+
+    // Update WebServer if toggled
+    if (_webEnabled && !webServer.isRunning) {
+      await webServer.start(port: webPort);
+    } else if (!_webEnabled && webServer.isRunning) {
+      await webServer.stop();
+    }
 
     // Enforce retention right away
     await db.enforceRetention(maxEntries: _retentionLimit, maxDays: _retentionDays);
@@ -203,6 +221,43 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       prefixIcon: Icon(Icons.router_rounded, color: Color(0xFF94A3B8)),
                     ),
                   ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Web dashboard section
+          _buildSectionHeader('Local Web Portal'),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  SwitchListTile(
+                    title: const Text('Enable Web Dashboard', style: TextStyle(fontWeight: FontWeight.w600)),
+                    subtitle: const Text(
+                      'Allows viewing and pushing clipboard items from any web browser on local Wi-Fi.',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                    ),
+                    value: _webEnabled,
+                    activeThumbColor: AppTheme.accentColor,
+                    contentPadding: EdgeInsets.zero,
+                    onChanged: (val) => setState(() => _webEnabled = val),
+                  ),
+                  if (_webEnabled) ...[
+                    const Divider(color: Color(0xFF334155)),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _webPortController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Web Server HTTP Port',
+                        hintText: '42881',
+                        prefixIcon: Icon(Icons.language_rounded, color: Color(0xFF94A3B8)),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

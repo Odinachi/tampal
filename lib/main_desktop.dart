@@ -88,6 +88,12 @@ class _ClipSyncDesktopAppState extends ConsumerState<ClipSyncDesktopApp> {
     // 3. Start clipboard polling / hook
     final watcher = ref.read(clipboardWatcherProvider);
     await watcher.start();
+
+    // 4. Start local web portal
+    if (settings.webEnabled) {
+      final webServer = ref.read(webServerProvider);
+      await webServer.start();
+    }
   }
 
   @override

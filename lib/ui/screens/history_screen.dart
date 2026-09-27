@@ -138,6 +138,113 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     );
   }
 
+  Future<void> _showWebPortalDialog() async {
+    final webServer = ref.read(webServerProvider);
+    final portalUrl = await webServer.getPortalUrl();
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.darkCard,
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.language_rounded, color: AppTheme.primaryLight, size: 20),
+            ),
+            const SizedBox(width: 12),
+            const Text('Web Dashboard', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Access, search, and copy clipboard history in real-time from any browser on your Wi-Fi network:',
+              style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13, height: 1.4),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F172A),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.link_rounded, color: AppTheme.accentColor, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: SelectableText(
+                      portalUrl,
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.copy_rounded, size: 18),
+                    tooltip: 'Copy URL',
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: portalUrl));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Web Portal URL copied to clipboard!')),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: webServer.isRunning ? AppTheme.successColor : AppTheme.errorColor,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  webServer.isRunning
+                      ? 'Server Active (Port ${webServer.port}) • ${webServer.clientCount} browser(s)'
+                      : 'Server Stopped',
+                  style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close', style: TextStyle(color: Color(0xFF94A3B8))),
+          ),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.open_in_browser_rounded, size: 18),
+            label: const Text('Open Browser'),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await webServer.openBrowser();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final historyAsync = ref.watch(clipboardHistoryProvider);
@@ -212,6 +319,12 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                   : const Icon(Icons.sync_rounded),
               tooltip: 'Sync Now',
               onPressed: _triggerSyncNow,
+            ),
+            // Web Dashboard button
+            IconButton(
+              icon: const Icon(Icons.language_rounded),
+              tooltip: 'Web Dashboard',
+              onPressed: _showWebPortalDialog,
             ),
             // Pairing / Devices button
             IconButton(
