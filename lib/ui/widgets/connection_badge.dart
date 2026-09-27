@@ -47,7 +47,6 @@ class ConnectionBadge extends StatelessWidget {
         icon = Icons.warning_amber_rounded;
         break;
       case SyncStatus.idle:
-      default:
         badgeColor = const Color(0xFF64748B);
         label = 'Not Connected';
         icon = Icons.link_off_rounded;
@@ -60,9 +59,9 @@ class ConnectionBadge extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: badgeColor.withOpacity(0.12),
+          color: badgeColor.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: badgeColor.withOpacity(0.3), width: 1),
+          border: Border.all(color: badgeColor.withValues(alpha: 0.3), width: 1),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -75,7 +74,7 @@ class ConnectionBadge extends StatelessWidget {
                 color: badgeColor,
                 boxShadow: [
                   BoxShadow(
-                    color: badgeColor.withOpacity(0.6),
+                    color: badgeColor.withValues(alpha: 0.6),
                     blurRadius: 6,
                     spreadRadius: 1,
                   ),

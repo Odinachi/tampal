@@ -188,7 +188,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
                     ),
                     value: _autoSync,
-                    activeColor: AppTheme.accentColor,
+                    activeThumbColor: AppTheme.accentColor,
                     contentPadding: EdgeInsets.zero,
                     onChanged: (val) => setState(() => _autoSync = val),
                   ),

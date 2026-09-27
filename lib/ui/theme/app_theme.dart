@@ -25,12 +25,12 @@ class AppTheme {
         onPrimary: Colors.white,
         onSurface: Color(0xFFF1F5F9),
       ),
-      cardTheme: CardTheme(
+      cardTheme: const CardThemeData(
         color: darkCard,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: Color(0xFF334155), width: 1),
+          borderRadius: BorderRadius.all(Radius.circular(16)),
+          side: BorderSide(color: Color(0xFF334155), width: 1),
         ),
       ),
       appBarTheme: const AppBarTheme(

@@ -82,8 +82,8 @@ class _ClipboardCardState extends State<ClipboardCard> {
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
                       color: widget.isLocal
-                          ? AppTheme.primaryColor.withOpacity(0.15)
-                          : AppTheme.accentColor.withOpacity(0.15),
+                          ? AppTheme.primaryColor.withValues(alpha: 0.15)
+                          : AppTheme.accentColor.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Row(

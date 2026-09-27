@@ -132,7 +132,7 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: isConnected
-                        ? AppTheme.successColor.withOpacity(0.15)
+                        ? AppTheme.successColor.withValues(alpha: 0.15)
                         : const Color(0xFF334155),
                     borderRadius: BorderRadius.circular(10),
                   ),
@@ -222,7 +222,7 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withOpacity(0.2),
+                color: AppTheme.primaryColor.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
@@ -276,7 +276,7 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
                 leading: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AppTheme.accentColor.withOpacity(0.15),
+                    color: AppTheme.accentColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
