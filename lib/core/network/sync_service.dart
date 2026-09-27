@@ -317,7 +317,7 @@ class SyncService {
       debugPrint('[SyncService] Received push entry from ${entry.deviceId}: "${entry.content.length > 30 ? '${entry.content.substring(0, 30)}...' : entry.content}"');
 
       // 1. Save to local SQLite
-      final inserted = await db.insertEntry(
+      await db.insertEntry(
         entry,
         maxEntries: settings.retentionLimit,
         maxDays: settings.retentionDays,
@@ -334,10 +334,8 @@ class SyncService {
         onPendingClipboardContent?.call(entry.content);
       }
 
-      // 4. Always notify UI if inserted
-      if (inserted) {
-        _entryReceivedController.add(entry);
-      }
+      // 4. Always notify UI
+      _entryReceivedController.add(entry);
     } catch (e) {
       debugPrint('[SyncService] Error processing push entry: $e');
     }
@@ -345,11 +343,14 @@ class SyncService {
 
   /// Push a new local clipboard entry to all connected peers
   Future<void> pushLocalEntry(ClipboardEntry entry) async {
-    if (_connections.isEmpty) return;
+    if (_connections.isEmpty) {
+      debugPrint('[SyncService] No active connections to push entry: "${entry.content}"');
+      return;
+    }
 
-    debugPrint('[SyncService] Pushing entry to ${_connections.length} peer(s)');
+    debugPrint('[SyncService] Pushing entry to ${_connections.length} peer(s): "${entry.content.length > 30 ? '${entry.content.substring(0, 30)}...' : entry.content}"');
     for (final conn in _connections) {
-      conn.sendEntryPayload(entry);
+      conn.sendMessage(SyncMessage.pushEntry(entry));
     }
   }
 
@@ -399,12 +400,12 @@ class SyncService {
 
   /// Manual "Sync Now" trigger (useful on iOS or on-demand sync)
   Future<void> syncNow({dynamic watcher}) async {
-    // 1. Force check the current system clipboard if watcher is provided
+    // 1. Force push the current system clipboard if watcher is provided
     if (watcher != null) {
       try {
-        await watcher.checkClipboard(force: true);
+        await watcher.pushCurrentClipboard();
       } catch (e) {
-        debugPrint('[SyncService] Error in watcher checkClipboard: $e');
+        debugPrint('[SyncService] Error in watcher pushCurrentClipboard: $e');
       }
     }
 

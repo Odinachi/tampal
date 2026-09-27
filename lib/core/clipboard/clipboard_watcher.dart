@@ -65,9 +65,22 @@ class ClipboardWatcher with WidgetsBindingObserver {
   }
 
   Future<void> _onResumed() async {
-    // 1. If a remote entry arrived while backgrounded and couldn't be set due to OS restriction,
-    // apply it to the system clipboard now that we have window focus
-    if (_pendingRemoteText != null) {
+    // 1. Check local clipboard first in case the user copied something in another app
+    var entry = await checkClipboard();
+
+    // 2. On Android, window focus is granted asynchronously after onResume.
+    // If not captured immediately, retry after 200ms and 500ms
+    if (entry == null) {
+      await Future.delayed(const Duration(milliseconds: 200));
+      entry = await checkClipboard();
+    }
+    if (entry == null) {
+      await Future.delayed(const Duration(milliseconds: 300));
+      entry = await checkClipboard();
+    }
+
+    // 3. Only apply pending remote clipboard if user didn't copy anything new locally
+    if (entry == null && _pendingRemoteText != null) {
       final text = _pendingRemoteText!;
       _pendingRemoteText = null;
       try {
@@ -78,9 +91,44 @@ class ClipboardWatcher with WidgetsBindingObserver {
         debugPrint('[ClipboardWatcher] Failed applying pending remote clipboard text on resume: $e');
       }
     }
+  }
 
-    // 2. Immediate check for any new text copied while app was backgrounded
-    await checkClipboard();
+  /// Force read current system clipboard and push it to all connected peers
+  Future<ClipboardEntry?> pushCurrentClipboard() async {
+    try {
+      final data = await Clipboard.getData(Clipboard.kTextPlain);
+      final text = data?.text;
+
+      if (text == null || text.trim().isEmpty) {
+        return null;
+      }
+
+      _lastKnownContent = text;
+
+      final entry = ClipboardEntry.create(
+        deviceId: settings.deviceId,
+        content: text,
+      );
+
+      // Save to SQLite
+      await db.insertEntry(
+        entry,
+        maxEntries: settings.retentionLimit,
+        maxDays: settings.retentionDays,
+      );
+
+      // Push to connected peers
+      await syncService.pushLocalEntry(entry);
+
+      // Emit to UI
+      _newEntryController.add(entry);
+
+      debugPrint('[ClipboardWatcher] Force pushed current clipboard: "${text.length > 30 ? '${text.substring(0, 30)}...' : text}"');
+      return entry;
+    } catch (e) {
+      debugPrint('[ClipboardWatcher] Error pushing current clipboard: $e');
+      return null;
+    }
   }
 
   /// Mark content to be ignored from local push (used when peer pushes remote entry)
@@ -116,13 +164,6 @@ class ClipboardWatcher with WidgetsBindingObserver {
         return null;
       }
 
-      // Check if the latest entry in local DB is already this exact text
-      final latest = await db.getLatestEntry();
-      if (latest != null && latest.content == text) {
-        _lastKnownContent = text;
-        return null;
-      }
-
       // New local clipboard entry detected!
       _lastKnownContent = text;
 
@@ -144,6 +185,7 @@ class ClipboardWatcher with WidgetsBindingObserver {
       // Emit to UI
       _newEntryController.add(entry);
 
+      debugPrint('[ClipboardWatcher] Captured and pushed new entry: "${text.length > 30 ? '${text.substring(0, 30)}...' : text}"');
       return entry;
     } catch (e) {
       // System clipboard may be temporarily locked or busy

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/models/clipboard_entry.dart';
 import '../../core/providers/clipsync_providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/clipboard_card.dart';
@@ -30,17 +32,82 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     setState(() => _isSyncing = true);
     final syncService = ref.read(syncServiceProvider);
     final watcher = ref.read(clipboardWatcherProvider);
+    final entry = await watcher.pushCurrentClipboard();
     await syncService.syncNow(watcher: watcher);
     await ref.read(clipboardHistoryProvider.notifier).loadEntries();
     if (mounted) {
+      final msg = entry != null
+          ? 'Synced clipboard: "${entry.content.length > 25 ? '${entry.content.substring(0, 25)}...' : entry.content}"'
+          : 'Clipboard synchronized with peers';
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Clipboard synchronized'),
-          duration: Duration(seconds: 1),
+        SnackBar(
+          content: Text(msg),
+          duration: const Duration(seconds: 2),
         ),
       );
       setState(() => _isSyncing = false);
     }
+  }
+
+  void _showSendTextDialog() {
+    final textController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.darkCard,
+        title: const Text('Send to Peer'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Type or paste text to send immediately to connected devices:',
+              style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: textController,
+              autofocus: true,
+              maxLines: 4,
+              decoration: const InputDecoration(
+                hintText: 'Enter text to sync...',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8))),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final text = textController.text.trim();
+              if (text.isNotEmpty) {
+                Navigator.pop(ctx);
+                final settings = ref.read(settingsServiceProvider);
+                final entry = ClipboardEntry.create(
+                  deviceId: settings.deviceId,
+                  content: text,
+                );
+                await ref.read(clipboardDatabaseProvider).insertEntry(entry);
+                await ref.read(syncServiceProvider).pushLocalEntry(entry);
+                await Clipboard.setData(ClipboardData(text: text));
+                await ref.read(clipboardHistoryProvider.notifier).loadEntries();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Sent: "${text.length > 25 ? '${text.substring(0, 25)}...' : text}"'),
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Send & Copy'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _confirmClearAll() {
@@ -127,6 +194,12 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
               icon: const Icon(Icons.search_rounded),
               tooltip: 'Search history',
               onPressed: () => setState(() => _isSearching = true),
+            ),
+            // Send / Paste new text directly
+            IconButton(
+              icon: const Icon(Icons.add_circle_outline_rounded),
+              tooltip: 'Send text to peer',
+              onPressed: _showSendTextDialog,
             ),
             // Sync now button (manual sync trigger)
             IconButton(

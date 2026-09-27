@@ -29,6 +29,9 @@ class SyncConnection {
     required this.onClosed,
     this.peerDevice,
   }) {
+    try {
+      socket.setOption(SocketOption.tcpNoDelay, true);
+    } catch (_) {}
     _init();
   }
 
