@@ -1,0 +1,23 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "ClipSync Mobile",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main_mobile.dart"
+    },
+    {
+      "name": "ClipSync Desktop",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main_desktop.dart"
+    },
+    {
+      "name": "ClipSync (Auto)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart"
+    }
+  ]
+}

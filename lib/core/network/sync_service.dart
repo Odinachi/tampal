@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import '../constants/app_constants.dart';
 import '../database/clipboard_database.dart';
 import '../models/clipboard_entry.dart';
 import '../models/device_info.dart';

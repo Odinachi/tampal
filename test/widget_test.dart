@@ -1,30 +1,94 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:clipsync/main.dart';
+import 'package:clipsync/core/models/clipboard_entry.dart';
+import 'package:clipsync/core/network/sync_service.dart';
+import 'package:clipsync/ui/widgets/clipboard_card.dart';
+import 'package:clipsync/ui/widgets/connection_badge.dart';
+import 'package:clipsync/ui/widgets/empty_state.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  group('Widget Tests', () {
+    testWidgets('ConnectionBadge displays status accurately', (WidgetTester tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: ConnectionBadge(
+              status: SyncStatus.connected,
+              peerName: 'MacBook Pro',
+            ),
+          ),
+        ),
+      );
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+      expect(find.text('Synced with MacBook Pro'), findsOneWidget);
+      expect(find.byIcon(Icons.link_rounded), findsOneWidget);
+    });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    testWidgets('ClipboardCard displays content and triggers copy', (WidgetTester tester) async {
+      bool copied = false;
+      bool deleted = false;
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+      final entry = ClipboardEntry(
+        id: 'test-id-1',
+        deviceId: 'device-local',
+        contentType: 'text',
+        content: 'Antigravity ClipSync Text',
+        createdAt: DateTime.now(),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ClipboardCard(
+              entry: entry,
+              isLocal: true,
+              onCopy: () => copied = true,
+              onDelete: () => deleted = true,
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Antigravity ClipSync Text'), findsOneWidget);
+      expect(find.text('This Device'), findsOneWidget);
+
+      // Tap card to copy
+      await tester.tap(find.byType(ClipboardCard));
+      await tester.pump();
+
+      expect(copied, isTrue);
+
+      // Tap delete icon
+      await tester.tap(find.byIcon(Icons.delete_outline_rounded));
+      await tester.pump(const Duration(seconds: 2));
+
+      expect(deleted, isTrue);
+    });
+
+    testWidgets('EmptyStateView renders title, message, and action button', (WidgetTester tester) async {
+      bool actionTriggered = false;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: EmptyStateView(
+              title: 'No Items',
+              message: 'Your clipboard history is clear.',
+              actionLabel: 'Sync Now',
+              onAction: () => actionTriggered = true,
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('No Items'), findsOneWidget);
+      expect(find.text('Your clipboard history is clear.'), findsOneWidget);
+      expect(find.text('Sync Now'), findsOneWidget);
+
+      await tester.tap(find.text('Sync Now'));
+      await tester.pump();
+
+      expect(actionTriggered, isTrue);
+    });
   });
 }
