@@ -29,11 +29,13 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   Future<void> _triggerSyncNow() async {
     setState(() => _isSyncing = true);
     final syncService = ref.read(syncServiceProvider);
-    await syncService.syncNow();
+    final watcher = ref.read(clipboardWatcherProvider);
+    await syncService.syncNow(watcher: watcher);
+    await ref.read(clipboardHistoryProvider.notifier).loadEntries();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Sync requested from peer'),
+          content: Text('Clipboard synchronized'),
           duration: Duration(seconds: 1),
         ),
       );

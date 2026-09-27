@@ -36,6 +36,8 @@ class SyncService {
 
   // Internal callback so ClipboardWatcher can update its cache on remote incoming entry
   void Function(String remoteContent)? onRemoteClipboardApplied;
+  // Callback when clipboard could not be set immediately (e.g. Android background focus restriction)
+  void Function(String pendingContent)? onPendingClipboardContent;
 
   SyncService({
     required this.settings,
@@ -215,24 +217,16 @@ class SyncService {
     // Cancel reconnect attempts once connected
     _reconnectTimer?.cancel();
 
-    // 1. Request peer entries missing on our end
+    // 1. Immediately exchange recent local entries (up to 30) with peer so peers are immediately in sync
+    final recentLocal = await db.getEntries(limit: 30);
+    if (recentLocal.isNotEmpty) {
+      debugPrint('[SyncService] Exchanging ${recentLocal.length} local entries with peer ${remote.deviceName}');
+      conn.sendMessage(SyncMessage.syncResponse(recentLocal));
+    }
+
+    // 2. Request peer entries missing on our end
     final latestLocal = await db.getLatestEntry();
     conn.sendMessage(SyncMessage.syncRequest(since: latestLocal?.createdAt));
-
-    // 2. If remote peer provided a latest timestamp, send them local entries they are missing
-    if (remote.latestTimestamp != null) {
-      final missingEntries = await db.getEntriesSince(remote.latestTimestamp!);
-      if (missingEntries.isNotEmpty) {
-        debugPrint('[SyncService] Sending ${missingEntries.length} missing entries to peer');
-        conn.sendMessage(SyncMessage.syncResponse(missingEntries));
-      }
-    } else {
-      // If remote has no entries at all, send recent history (up to 20)
-      final allLocal = await db.getEntries(limit: 20);
-      if (allLocal.isNotEmpty) {
-        conn.sendMessage(SyncMessage.syncResponse(allLocal));
-      }
-    }
   }
 
   /// Peer is requesting entries since a timestamp
@@ -244,10 +238,10 @@ class SyncService {
       if (since != null) {
         missing = await db.getEntriesSince(since);
       } else {
-        missing = await db.getEntries(limit: 50);
+        missing = await db.getEntries(limit: 30);
       }
     } else {
-      missing = await db.getEntries(limit: 50);
+      missing = await db.getEntries(limit: 30);
     }
 
     if (missing.isNotEmpty) {
@@ -260,18 +254,42 @@ class SyncService {
     final entriesRaw = data['entries'] as List<dynamic>? ?? [];
     debugPrint('[SyncService] Received sync response with ${entriesRaw.length} entries');
 
+    ClipboardEntry? newestReceived;
+
     for (final raw in entriesRaw) {
       if (raw is Map<String, dynamic>) {
         try {
           final entry = ClipboardEntry.fromSyncJson(raw);
-          await db.insertEntry(
+          // Only process entries from other devices
+          if (entry.deviceId == settings.deviceId) continue;
+
+          final inserted = await db.insertEntry(
             entry,
             maxEntries: settings.retentionLimit,
             maxDays: settings.retentionDays,
           );
+          if (inserted) {
+            _entryReceivedController.add(entry);
+          }
+
+          if (newestReceived == null || entry.createdAt.isAfter(newestReceived.createdAt)) {
+            newestReceived = entry;
+          }
         } catch (e) {
           debugPrint('[SyncService] Error parsing entry from sync response: $e');
         }
+      }
+    }
+
+    // If entries were received from a remote peer, apply the newest one to the system clipboard
+    if (newestReceived != null) {
+      try {
+        onRemoteClipboardApplied?.call(newestReceived.content);
+        await Clipboard.setData(ClipboardData(text: newestReceived.content));
+        debugPrint('[SyncService] Updated system clipboard with synced entry: "${newestReceived.content.length > 30 ? '${newestReceived.content.substring(0, 30)}...' : newestReceived.content}"');
+      } catch (e) {
+        debugPrint('[SyncService] Warning: Could not set system clipboard (app may lack focus): $e');
+        onPendingClipboardContent?.call(newestReceived.content);
       }
     }
   }
@@ -296,9 +314,15 @@ class SyncService {
       // 2. Notify watcher to ignore echoing this exact text
       onRemoteClipboardApplied?.call(entry.content);
 
-      // 3. Set the device's clipboard
-      await Clipboard.setData(ClipboardData(text: entry.content));
+      // 3. Set the device's clipboard safely (handles Android background / focus exceptions)
+      try {
+        await Clipboard.setData(ClipboardData(text: entry.content));
+      } catch (e) {
+        debugPrint('[SyncService] Warning: Could not set system clipboard (app may lack focus): $e');
+        onPendingClipboardContent?.call(entry.content);
+      }
 
+      // 4. Always notify UI if inserted
       if (inserted) {
         _entryReceivedController.add(entry);
       }
@@ -362,7 +386,16 @@ class SyncService {
   }
 
   /// Manual "Sync Now" trigger (useful on iOS or on-demand sync)
-  Future<void> syncNow() async {
+  Future<void> syncNow({dynamic watcher}) async {
+    // 1. Force check the current system clipboard if watcher is provided
+    if (watcher != null) {
+      try {
+        await watcher.checkClipboard(force: true);
+      } catch (e) {
+        debugPrint('[SyncService] Error in watcher checkClipboard: $e');
+      }
+    }
+
     if (_connections.isEmpty) {
       final lastHost = settings.lastPairedHost;
       final lastPort = settings.lastPairedPort;
@@ -373,10 +406,16 @@ class SyncService {
     }
 
     _setStatus(SyncStatus.syncing, 'Syncing clipboard...');
-    final latestLocal = await db.getLatestEntry();
+
+    // 2. Exchange recent entries with connected peers
+    final recentLocal = await db.getEntries(limit: 30);
     for (final conn in _connections) {
-      conn.sendMessage(SyncMessage.syncRequest(since: latestLocal?.createdAt));
+      if (recentLocal.isNotEmpty) {
+        conn.sendMessage(SyncMessage.syncResponse(recentLocal));
+      }
+      conn.sendMessage(SyncMessage.syncRequest());
     }
+
     await Future.delayed(const Duration(milliseconds: 500));
     _setStatus(SyncStatus.connected, 'Connected to ${_activePeer?.name ?? 'Peer'}');
   }

@@ -15,6 +15,7 @@ class ClipboardWatcher with WidgetsBindingObserver {
   String? _lastKnownContent;
   final Set<String> _ignoredContents = {};
   bool _isWatching = false;
+  String? _pendingRemoteText;
 
   final _newEntryController = StreamController<ClipboardEntry>.broadcast();
 
@@ -26,6 +27,9 @@ class ClipboardWatcher with WidgetsBindingObserver {
     // Register callback so when remote peer pushes clipboard,
     // the watcher suppresses echo loops
     syncService.onRemoteClipboardApplied = ignoreContent;
+    syncService.onPendingClipboardContent = (text) {
+      _pendingRemoteText = text;
+    };
   }
 
   Stream<ClipboardEntry> get newEntryStream => _newEntryController.stream;
@@ -39,13 +43,8 @@ class ClipboardWatcher with WidgetsBindingObserver {
     // Register lifecycle observer to check clipboard instantly when app resumes
     WidgetsBinding.instance.addObserver(this);
 
-    // Initialize with current clipboard content so existing text is not treated as a new copy
-    try {
-      final data = await Clipboard.getData(Clipboard.kTextPlain);
-      if (data?.text != null) {
-        _lastKnownContent = data!.text;
-      }
-    } catch (_) {}
+    // Initial check: if system clipboard has text not yet in DB, record and sync it!
+    await checkClipboard(force: true);
 
     _pollingTimer = Timer.periodic(interval, (_) => checkClipboard());
   }
@@ -61,9 +60,27 @@ class ClipboardWatcher with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      // Immediate check when coming to foreground
-      checkClipboard();
+      _onResumed();
     }
+  }
+
+  Future<void> _onResumed() async {
+    // 1. If a remote entry arrived while backgrounded and couldn't be set due to OS restriction,
+    // apply it to the system clipboard now that we have window focus
+    if (_pendingRemoteText != null) {
+      final text = _pendingRemoteText!;
+      _pendingRemoteText = null;
+      try {
+        ignoreContent(text);
+        await Clipboard.setData(ClipboardData(text: text));
+        debugPrint('[ClipboardWatcher] Applied pending remote clipboard text on resume');
+      } catch (e) {
+        debugPrint('[ClipboardWatcher] Failed applying pending remote clipboard text on resume: $e');
+      }
+    }
+
+    // 2. Immediate check for any new text copied while app was backgrounded
+    await checkClipboard();
   }
 
   /// Mark content to be ignored from local push (used when peer pushes remote entry)
@@ -76,8 +93,9 @@ class ClipboardWatcher with WidgetsBindingObserver {
     });
   }
 
-  /// Check clipboard manually or on timer tick
-  Future<ClipboardEntry?> checkClipboard() async {
+  /// Check clipboard manually or on timer tick.
+  /// If [force] is true, checks against database even if text == _lastKnownContent.
+  Future<ClipboardEntry?> checkClipboard({bool force = false}) async {
     try {
       final data = await Clipboard.getData(Clipboard.kTextPlain);
       final text = data?.text;
@@ -86,14 +104,21 @@ class ClipboardWatcher with WidgetsBindingObserver {
         return null;
       }
 
-      // Check if text is identical to last known
-      if (text == _lastKnownContent) {
-        return null;
-      }
-
       // Check if this content was pushed by peer
       if (_ignoredContents.contains(text)) {
         _ignoredContents.remove(text);
+        _lastKnownContent = text;
+        return null;
+      }
+
+      // If not forced, check if text is identical to last known
+      if (!force && text == _lastKnownContent) {
+        return null;
+      }
+
+      // Check if the latest entry in local DB is already this exact text
+      final latest = await db.getLatestEntry();
+      if (latest != null && latest.content == text) {
         _lastKnownContent = text;
         return null;
       }
@@ -129,6 +154,7 @@ class ClipboardWatcher with WidgetsBindingObserver {
   /// Copy an existing entry back to the system clipboard
   Future<void> copyToClipboard(ClipboardEntry entry) async {
     _lastKnownContent = entry.content;
+    ignoreContent(entry.content);
     await Clipboard.setData(ClipboardData(text: entry.content));
   }
 

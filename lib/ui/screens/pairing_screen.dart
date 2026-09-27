@@ -41,23 +41,26 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
     final syncService = ref.read(syncServiceProvider);
     final success = await syncService.connectToPeer(host, port, peerName: name);
 
-    if (mounted) {
-      setState(() => _isConnecting = false);
-      if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: AppTheme.successColor,
-            content: Text('Connected to ${name ?? '$host:$port'}'),
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: AppTheme.errorColor,
-            content: Text('Failed to connect to $host:$port. Ensure peer is running ClipSync on the same Wi-Fi.'),
-          ),
-        );
-      }
+    if (!mounted) return;
+    setState(() => _isConnecting = false);
+    if (success) {
+      final watcher = ref.read(clipboardWatcherProvider);
+      await syncService.syncNow(watcher: watcher);
+      await ref.read(clipboardHistoryProvider.notifier).loadEntries();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AppTheme.successColor,
+          content: Text('Connected and synced with ${name ?? '$host:$port'}'),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AppTheme.errorColor,
+          content: Text('Failed to connect to $host:$port. Ensure peer is running ClipSync on the same Wi-Fi.'),
+        ),
+      );
     }
   }
 

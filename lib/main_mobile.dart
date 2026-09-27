@@ -76,10 +76,14 @@ class _ClipSyncMobileAppState extends ConsumerState<ClipSyncMobileApp> {
     final settings = ref.read(settingsServiceProvider);
     if (settings.autoSync && settings.lastPairedHost != null && settings.lastPairedPort != null) {
       debugPrint('[ClipSyncMobile] Auto-connecting to last paired peer: ${settings.lastPairedHost}:${settings.lastPairedPort}');
-      ref.read(syncServiceProvider).connectToPeer(
+      final success = await ref.read(syncServiceProvider).connectToPeer(
         settings.lastPairedHost!,
         settings.lastPairedPort!,
       );
+      if (success) {
+        await ref.read(syncServiceProvider).syncNow(watcher: watcher);
+        await ref.read(clipboardHistoryProvider.notifier).loadEntries();
+      }
     }
   }
 

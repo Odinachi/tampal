@@ -104,6 +104,24 @@ void main() {
       final entry = ClipboardEntry.fromSyncJson(msg.data);
       expect(entry.content, 'Direct raw payload test');
     });
+
+    test('Batch syncResponse correctly packages and parses multiple entries', () {
+      final entry1 = ClipboardEntry.create(deviceId: 'dev-1', content: 'Item 1');
+      final entry2 = ClipboardEntry.create(deviceId: 'dev-2', content: 'Item 2');
+      final resp = SyncMessage.syncResponse([entry1, entry2]);
+      final encoded = resp.encode();
+      final decodedMap = jsonDecode(encoded) as Map<String, dynamic>;
+      final restored = SyncMessage.fromJson(decodedMap);
+
+      expect(restored.type, SyncMessageType.syncResponse);
+      final entriesRaw = restored.data['entries'] as List;
+      expect(entriesRaw.length, 2);
+      final parsedEntries = entriesRaw
+          .map((e) => ClipboardEntry.fromSyncJson(e as Map<String, dynamic>))
+          .toList();
+      expect(parsedEntries[0].content, 'Item 1');
+      expect(parsedEntries[1].content, 'Item 2');
+    });
   });
 
   group('PeerDevice Model Tests', () {
