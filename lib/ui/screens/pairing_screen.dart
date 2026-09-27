@@ -105,8 +105,8 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
           _buildActiveConnectionCard(syncStatus, activePeer),
           const SizedBox(height: 20),
 
-          // 2. Discovered Devices (mDNS / Zeroconf)
-          _buildDiscoveredSection(discoveredPeers),
+          // 2. Available / Discovered Devices (mDNS / Zeroconf)
+          _buildDiscoveredSection(discoveredPeers, activePeer, syncStatus, syncService),
           const SizedBox(height: 20),
 
           // 3. Manual Direct Connect Card
@@ -211,14 +211,55 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
     );
   }
 
-  Widget _buildDiscoveredSection(List<PeerDevice> peers) {
+  bool _areHostsEqual(String a, String b) {
+    final cleanA = a.replaceAll('::ffff:', '').toLowerCase();
+    final cleanB = b.replaceAll('::ffff:', '').toLowerCase();
+    return cleanA == cleanB;
+  }
+
+  bool _isPeerConnected(PeerDevice peer, PeerDevice? activePeer, SyncService syncService) {
+    if (activePeer != null) {
+      if (activePeer.id == peer.id ||
+          activePeer.name == peer.name ||
+          _areHostsEqual(activePeer.host, peer.host)) {
+        return true;
+      }
+    }
+    for (final conn in syncService.connections) {
+      final p = conn.peerDevice;
+      if (p != null &&
+          (p.id == peer.id ||
+           p.name == peer.name ||
+           _areHostsEqual(p.host, peer.host))) {
+        return true;
+      }
+      if (_areHostsEqual(conn.remoteAddress, peer.host)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  Widget _buildDiscoveredSection(
+    List<PeerDevice> peers,
+    PeerDevice? activePeer,
+    SyncStatus status,
+    SyncService syncService,
+  ) {
+    final isCurrentlyConnected = status == SyncStatus.connected || status == SyncStatus.syncing;
+
+    // Filter peers to only show available (unconnected) devices
+    final availablePeers = peers.where((peer) {
+      return !_isPeerConnected(peer, activePeer, syncService);
+    }).toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
             const Text(
-              'Discovered Devices',
+              'Available Devices',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(width: 8),
@@ -229,7 +270,7 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
-                '${peers.length}',
+                '${availablePeers.length}',
                 style: const TextStyle(fontSize: 11, color: AppTheme.primaryLight, fontWeight: FontWeight.bold),
               ),
             ),
@@ -247,24 +288,32 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
           ],
         ),
         const SizedBox(height: 8),
-        if (peers.isEmpty)
-          const Card(
+        if (availablePeers.isEmpty)
+          Card(
             child: Padding(
-              padding: EdgeInsets.all(24),
+              padding: const EdgeInsets.all(20),
               child: Center(
                 child: Column(
                   children: [
-                    Icon(Icons.wifi_find_rounded, size: 36, color: Color(0xFF64748B)),
-                    SizedBox(height: 12),
-                    Text(
-                      'No ClipSync devices found yet',
-                      style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFFF1F5F9)),
+                    Icon(
+                      isCurrentlyConnected ? Icons.check_circle_rounded : Icons.wifi_find_rounded,
+                      size: 32,
+                      color: isCurrentlyConnected ? AppTheme.successColor : const Color(0xFF64748B),
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 10),
                     Text(
-                      'Make sure your other device is on the same local Wi-Fi network and has ClipSync open.',
+                      isCurrentlyConnected
+                          ? '${activePeer?.name ?? 'Device'} is connected'
+                          : 'No ClipSync devices found yet',
+                      style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFFF1F5F9)),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      isCurrentlyConnected
+                          ? 'This device is currently paired and actively syncing clipboard history.'
+                          : 'Make sure your other device is on the same local Wi-Fi network and has ClipSync open.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                      style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
                     ),
                   ],
                 ),
@@ -272,7 +321,7 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
             ),
           )
         else
-          ...peers.map((peer) {
+          ...availablePeers.map((peer) {
             return Card(
               margin: const EdgeInsets.only(bottom: 8),
               child: ListTile(

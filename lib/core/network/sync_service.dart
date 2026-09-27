@@ -125,6 +125,18 @@ class SyncService {
 
   /// Connect to a remote peer (used by Mobile entry point or manual connect)
   Future<bool> connectToPeer(String host, int port, {String? peerName}) async {
+    // If already connected to this peer, avoid opening duplicate connection
+    for (final conn in _connections) {
+      final p = conn.peerDevice;
+      final connHost = conn.remoteAddress.replaceAll('::ffff:', '');
+      final targetHost = host.replaceAll('::ffff:', '');
+      if (connHost == targetHost || (p != null && (p.host == host || (peerName != null && p.name == peerName)))) {
+        debugPrint('[SyncService] Already connected to $host:$port');
+        _setStatus(SyncStatus.connected, 'Connected to ${peerName ?? _activePeer?.name ?? host}');
+        return true;
+      }
+    }
+
     _setStatus(SyncStatus.connecting, 'Connecting to $host:$port...');
     try {
       final socket = await Socket.connect(
