@@ -599,6 +599,89 @@ class WebServer {
       fill: currentColor;
     }
 
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 8px 14px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .btn-secondary svg {
+      width: 14px;
+      height: 14px;
+      fill: currentColor;
+    }
+
+    .composer-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Category Filters */
+    .category-filters {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      overflow-x: auto;
+      padding-bottom: 2px;
+    }
+
+    .filter-pill {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 0.82rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .filter-pill:hover {
+      border-color: var(--primary);
+      color: var(--text-main);
+    }
+
+    .filter-pill.active {
+      background: rgba(99, 102, 241, 0.15);
+      border-color: var(--primary);
+      color: #ffffff;
+      font-weight: 700;
+    }
+
+    .count-badge {
+      background: rgba(0, 0, 0, 0.4);
+      padding: 1px 6px;
+      border-radius: 10px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--text-sub);
+    }
+
+    .filter-pill.active .count-badge {
+      background: var(--primary);
+      color: #ffffff;
+    }
+
     /* Search & Filter Header */
     .controls-bar {
       display: flex;
@@ -707,6 +790,32 @@ class WebServer {
       color: #6EE7B7;
     }
 
+    .type-badge {
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 6px;
+      letter-spacing: 0.04em;
+    }
+
+    .type-badge.type-links {
+      background: rgba(6, 182, 212, 0.15);
+      color: #38BDF8;
+      border: 1px solid rgba(6, 182, 212, 0.3);
+    }
+
+    .type-badge.type-code {
+      background: rgba(245, 158, 11, 0.15);
+      color: #FCD34D;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    .type-badge.type-text {
+      background: rgba(148, 163, 184, 0.12);
+      color: #CBD5E1;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+    }
+
     .timestamp {
       font-size: 0.75rem;
       color: var(--text-sub);
@@ -728,12 +837,17 @@ class WebServer {
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: color 0.15s, background-color 0.15s;
+      transition: color 0.15s, background-color 0.15s, transform 0.15s;
     }
 
     .action-btn:hover {
       color: var(--text-main);
       background: rgba(255, 255, 255, 0.06);
+    }
+
+    .action-btn.copy-btn:hover {
+      color: #38BDF8;
+      background: rgba(6, 182, 212, 0.12);
     }
 
     .action-btn.delete-btn:hover {
@@ -890,12 +1004,34 @@ class WebServer {
       <textarea id="send-input" placeholder="Type or paste text here to immediately push to your Mac & Android phone..." rows="3"></textarea>
       <div class="composer-footer">
         <span class="shortcut-hint">Press <strong>Cmd/Ctrl + Enter</strong> to send</span>
-        <button id="send-btn" class="btn-send">
-          <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-          Send to Devices
-        </button>
+        <div class="composer-actions">
+          <button id="paste-btn" class="btn-secondary" onclick="pasteFromClipboard()">
+            <svg viewBox="0 0 24 24"><path d="M19 2h-4.18C14.4.84 13.3 0 12 0c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm7 18H5V4h2v3h10V4h2v16z"/></svg>
+            Paste
+          </button>
+          <button id="send-btn" class="btn-send">
+            <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+            Send to Devices
+          </button>
+        </div>
       </div>
     </section>
+
+    <!-- Category Filter Bar -->
+    <div class="category-filters">
+      <button class="filter-pill active" data-filter="all" onclick="setCategoryFilter('all')">
+        All <span id="count-all" class="count-badge">0</span>
+      </button>
+      <button class="filter-pill" data-filter="links" onclick="setCategoryFilter('links')">
+        🔗 Links <span id="count-links" class="count-badge">0</span>
+      </button>
+      <button class="filter-pill" data-filter="code" onclick="setCategoryFilter('code')">
+        💻 Code <span id="count-code" class="count-badge">0</span>
+      </button>
+      <button class="filter-pill" data-filter="text" onclick="setCategoryFilter('text')">
+        📝 Notes <span id="count-text" class="count-badge">0</span>
+      </button>
+    </div>
 
     <!-- Controls Bar -->
     <div class="controls-bar">
@@ -927,6 +1063,7 @@ class WebServer {
 
   <script>
     let entries = [];
+    let currentFilter = 'all';
     let ws = null;
     let reconnectInterval = 2500;
 
@@ -950,6 +1087,41 @@ class WebServer {
       }, 2000);
     }
 
+    function getItemType(content) {
+      if (!content) return 'text';
+      const c = content.trim();
+      if (c.startsWith('http://') || c.startsWith('https://')) return 'links';
+      if ((c.includes('{') && c.includes('}')) || (c.includes('[') && c.includes(']')) ||
+          c.includes('function') || c.includes('class ') || c.includes('const ') ||
+          c.includes('let ') || c.includes('import ') || c.includes('void ') ||
+          c.includes('def ') || c.includes('SELECT ') || c.includes('<html') ||
+          c.includes('=>') || c.includes(';')) {
+        return 'code';
+      }
+      return 'text';
+    }
+
+    function setCategoryFilter(filter) {
+      currentFilter = filter;
+      document.querySelectorAll('.filter-pill').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.filter === filter);
+      });
+      renderEntries();
+    }
+
+    async function pasteFromClipboard() {
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text) {
+          sendInput.value = text;
+          sendInput.focus();
+          showToast('Pasted from clipboard!');
+        }
+      } catch (err) {
+        showToast('Clipboard read access not granted');
+      }
+    }
+
     function formatTime(isoString) {
       try {
         const dt = new Date(isoString);
@@ -970,7 +1142,30 @@ class WebServer {
 
     function renderEntries() {
       const q = searchInput.value.toLowerCase().trim();
-      const filtered = entries.filter(e => !q || (e.content && e.content.toLowerCase().includes(q)));
+
+      // Update badge counts across all entries
+      const allCount = entries.length;
+      const linksCount = entries.filter(e => getItemType(e.content) === 'links').length;
+      const codeCount = entries.filter(e => getItemType(e.content) === 'code').length;
+      const textCount = entries.filter(e => getItemType(e.content) === 'text').length;
+
+      const countAllEl = document.getElementById('count-all');
+      const countLinksEl = document.getElementById('count-links');
+      const countCodeEl = document.getElementById('count-code');
+      const countTextEl = document.getElementById('count-text');
+
+      if (countAllEl) countAllEl.textContent = allCount;
+      if (countLinksEl) countLinksEl.textContent = linksCount;
+      if (countCodeEl) countCodeEl.textContent = codeCount;
+      if (countTextEl) countTextEl.textContent = textCount;
+
+      let filtered = entries;
+      if (currentFilter !== 'all') {
+        filtered = filtered.filter(e => getItemType(e.content) === currentFilter);
+      }
+      if (q) {
+        filtered = filtered.filter(e => e.content && e.content.toLowerCase().includes(q));
+      }
 
       statsCounter.textContent = filtered.length + ' item' + (filtered.length === 1 ? '' : 's');
 
@@ -983,26 +1178,33 @@ class WebServer {
       emptyStateEl.style.display = 'none';
 
       feedEl.innerHTML = filtered.map(item => {
-        const isUrl = item.content.startsWith('http://') || item.content.startsWith('https://');
+        const itemType = getItemType(item.content);
+        const isUrl = itemType === 'links';
+        const isCode = itemType === 'code';
+        const typeBadge = isUrl ? '🔗 LINK' : (isCode ? '💻 CODE' : '📝 TEXT');
         const badgeClass = item.device_id.includes('web') ? 'web-client' : (item.device_id.includes('android') ? 'android' : 'macos');
         const badgeLabel = item.device_id.includes('web') ? 'Web Portal' : (item.device_id.includes('android') ? 'Android' : 'Desktop');
 
         return `
-          <article class="entry-card" data-id="\${item.id}" onclick="copyText('\${escapeHtml(item.content)}')">
+          <article class="entry-card" data-id="\${item.id}" onclick="copyEntryById('\${item.id}')">
             <div class="entry-header">
               <div class="entry-meta">
                 <span class="device-badge \${badgeClass}">\${badgeLabel}</span>
+                <span class="type-badge type-\${itemType}">\${typeBadge}</span>
                 <span class="timestamp">\${formatTime(item.timestamp || item.created_at)}</span>
               </div>
               <div class="entry-actions">
+                <button class="action-btn copy-btn" title="Copy to clipboard" onclick="copyEntryBtn(event, '\${item.id}')">
+                  <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                </button>
                 <button class="action-btn delete-btn" title="Delete entry" onclick="deleteEntry(event, '\${item.id}')">
                   <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
                 </button>
               </div>
             </div>
-            <div class="entry-content \${isUrl ? 'monospace' : ''}">\${escapeHtml(item.content)}</div>
+            <div class="entry-content \${isUrl || isCode ? 'monospace' : ''}">\${escapeHtml(item.content)}</div>
             <div class="entry-footer">
-              <span>\${item.content.length} characters</span>
+              <span>\${item.content ? item.content.length : 0} characters</span>
               <span class="click-hint">Click card to copy</span>
             </div>
           </article>
@@ -1018,6 +1220,18 @@ class WebServer {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
+    }
+
+    async function copyEntryById(id) {
+      const item = entries.find(e => e.id === id);
+      if (item && item.content) {
+        await copyText(item.content);
+      }
+    }
+
+    async function copyEntryBtn(event, id) {
+      event.stopPropagation();
+      await copyEntryById(id);
     }
 
     async function copyText(text) {

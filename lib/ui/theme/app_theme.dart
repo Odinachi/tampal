@@ -1,16 +1,50 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
-  static const primaryColor = Color(0xFF6366F1); // Indigo
+  // Brand colors
+  static const primaryColor = Color(0xFF6366F1); // Indigo Vibrant
   static const primaryLight = Color(0xFF818CF8);
-  static const accentColor = Color(0xFF38BDF8); // Cyan
-  static const darkBg = Color(0xFF0F172A); // Slate 900
-  static const darkCard = Color(0xFF1E293B); // Slate 800
-  static const darkCardHover = Color(0xFF334155); // Slate 700
-  static const surfaceDark = Color(0xFF131C31);
+  static const primaryDark = Color(0xFF4F46E5);
+  static const accentColor = Color(0xFF06B6D4); // Cyber Cyan
+  static const violetColor = Color(0xFF8B5CF6); // Electric Violet
+  static const emeraldColor = Color(0xFF10B981); // Emerald Green
+  
+  // Surfaces & Backgrounds
+  static const darkBg = Color(0xFF0A0D14); // Deepest OLED Navy
+  static const surfaceDark = Color(0xFF101623); // Elevated surface
+  static const darkCard = Color(0xFF151C2C); // Card background
+  static const darkCardHover = Color(0xFF1C263B); // Hover state
+  static const glassBorder = Color(0xFF232D42); // Subtle frosted border
+  static const glassBorderHover = Color(0xFF384666); // Active border
+
+  // Status colors
   static const successColor = Color(0xFF10B981); // Emerald
   static const warningColor = Color(0xFFF59E0B); // Amber
   static const errorColor = Color(0xFFEF4444); // Rose
+
+  // Typography colors
+  static const textPrimary = Color(0xFFF8FAFC);
+  static const textSecondary = Color(0xFF94A3B8);
+  static const textMuted = Color(0xFF64748B);
+
+  // Gradients
+  static const primaryGradient = LinearGradient(
+    colors: [primaryColor, violetColor],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  static const cyanGradient = LinearGradient(
+    colors: [primaryColor, accentColor],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  static const surfaceGradient = LinearGradient(
+    colors: [Color(0xFF172033), Color(0xFF111726)],
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+  );
 
   static ThemeData get darkTheme {
     return ThemeData(
