@@ -1114,6 +1114,21 @@ class WebServer {
       };
     }
 
+    async function loadEntriesFromRest() {
+      try {
+        const res = await fetch('/api/entries');
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            entries = data;
+            renderEntries();
+          }
+        }
+      } catch (e) {
+        console.warn('Initial REST load error:', e);
+      }
+    }
+
     // Keyboard Shortcuts
     sendInput.addEventListener('keydown', (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
@@ -1125,7 +1140,8 @@ class WebServer {
     sendBtn.addEventListener('click', sendText);
     searchInput.addEventListener('input', renderEntries);
 
-    // Initial WebSocket start
+    // Initial load: fetch immediately via REST and establish live WebSocket sync
+    loadEntriesFromRest();
     connectWebSocket();
   </script>
 </body>
