@@ -340,97 +340,71 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
 
     return Scaffold(
       backgroundColor: AppTheme.darkBg,
-      body: Stack(
-        children: [
-          // Background ambient gradient glow
-          Positioned(
-            top: -120,
-            left: 0,
-            right: 0,
-            height: 380,
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  center: const Alignment(0, -0.8),
-                  radius: 1.1,
-                  colors: [
-                    AppTheme.primaryColor.withValues(alpha: 0.18),
-                    AppTheme.accentColor.withValues(alpha: 0.08),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-            ),
-          ),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 820),
+          child: Column(
+            children: [
+              const SizedBox(height: 12),
+              // Top Clean Navigation Header
+              _buildHeader(),
+              const SizedBox(height: 6),
 
-          // Main Content Layout
-          Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 880),
-              child: Column(
-                children: [
-                  const SizedBox(height: 12),
-                  // Top Modern Navigation Header
-                  _buildHeader(),
-                  const SizedBox(height: 8),
+              // Hub Connection Status Strip
+              _buildConnectionStrip(),
+              const SizedBox(height: 12),
 
-                  // Hub Connection & Latency Strip
-                  _buildConnectionStrip(),
-                  const SizedBox(height: 12),
+              // Raycast Command Broadcast Box
+              _buildComposer(),
+              const SizedBox(height: 12),
 
-                  // Floating 10x Push Composer
-                  _buildComposer(),
-                  const SizedBox(height: 12),
+              // Clean Segmented Tabs & Search
+              _buildFilterBar(linkCount, codeCount),
+              const SizedBox(height: 8),
 
-                  // Filter Categories & Search Bar
-                  _buildFilterBar(linkCount, codeCount),
-                  const SizedBox(height: 8),
-
-                  // Clipboard Cards Feed
-                  Expanded(
-                    child: filtered.isEmpty
-                        ? (_isLoading
-                            ? const Center(
-                                child: CircularProgressIndicator(color: AppTheme.accentColor),
-                              )
-                            : EmptyStateView(
-                                title: _searchQuery.isNotEmpty ? 'No matching entries' : 'Clipboard is empty',
-                                message: _isConnected
-                                    ? 'Copy text on any device, or use the composer above to push new text.'
-                                    : 'Make sure your ClipSync desktop app is running on your Mac/PC.',
-                                icon: Icons.content_paste_off_rounded,
-                                actionLabel: _isConnected ? null : 'Check Connection',
-                                onAction: _isConnected ? null : _showServerConfigDialog,
-                              ))
-                        : ListView.builder(
-                            padding: const EdgeInsets.only(bottom: 24),
-                            itemCount: filtered.length,
-                            itemBuilder: (context, index) {
-                              final entry = filtered[index];
-                              return ClipboardCard(
-                                entry: entry,
-                                isLocal: entry.deviceId.contains('web'),
-                                onCopy: () async {
-                                  await Clipboard.setData(ClipboardData(text: entry.content));
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('Copied to system clipboard!'),
-                                        duration: Duration(seconds: 1),
-                                      ),
-                                    );
-                                  }
-                                },
-                                onDelete: () => _deleteEntry(entry.id),
-                              );
+              // Clipboard Feed
+              Expanded(
+                child: filtered.isEmpty
+                    ? (_isLoading
+                        ? const Center(
+                            child: CircularProgressIndicator(color: AppTheme.primaryColor),
+                          )
+                        : EmptyStateView(
+                            title: _searchQuery.isNotEmpty ? 'No matching entries' : 'No clipboard history',
+                            message: _isConnected
+                                ? 'Copies from any connected device will sync automatically.'
+                                : 'Ensure ClipSync desktop app is running on your Mac/PC.',
+                            icon: Icons.content_paste_off_rounded,
+                            actionLabel: _isConnected ? null : 'Configure Hub',
+                            onAction: _isConnected ? null : _showServerConfigDialog,
+                          ))
+                    : ListView.builder(
+                        padding: const EdgeInsets.only(bottom: 24),
+                        itemCount: filtered.length,
+                        itemBuilder: (context, index) {
+                          final entry = filtered[index];
+                          return ClipboardCard(
+                            entry: entry,
+                            isLocal: entry.deviceId.contains('web'),
+                            onCopy: () async {
+                              await Clipboard.setData(ClipboardData(text: entry.content));
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Copied'),
+                                    duration: Duration(milliseconds: 1500),
+                                  ),
+                                );
+                              }
                             },
-                          ),
-                  ),
-                ],
+                            onDelete: () => _deleteEntry(entry.id),
+                          );
+                        },
+                      ),
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -441,79 +415,50 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            width: 30,
+            height: 30,
             decoration: BoxDecoration(
-              gradient: AppTheme.cyanGradient,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: AppTheme.primaryColor.withValues(alpha: 0.3),
-                  blurRadius: 12,
-                  offset: const Offset(0, 3),
-                ),
-              ],
+              color: AppTheme.darkCard,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: AppTheme.glassBorder),
             ),
-            child: const Icon(Icons.copy_all_rounded, color: Colors.white, size: 20),
+            child: const Icon(Icons.copy_rounded, color: AppTheme.textPrimary, size: 16),
           ),
-          const SizedBox(width: 12),
-          Column(
+          const SizedBox(width: 10),
+          const Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  const Text(
-                    'ClipSync',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: AppTheme.primaryLight.withValues(alpha: 0.3)),
-                    ),
-                    child: const Text(
-                      'WEB HUB',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        color: AppTheme.primaryLight,
-                        letterSpacing: 0.8,
-                      ),
-                    ),
-                  ),
-                ],
+              Text(
+                'ClipSync',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textPrimary,
+                  letterSpacing: -0.2,
+                ),
               ),
-              const Text(
-                'Cross-Device Wi-Fi Clipboard Synchronization',
-                style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+              Text(
+                'Local Clipboard Network',
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
               ),
             ],
           ),
           const Spacer(),
-          // Refresh Button
           IconButton(
             icon: _isLoading
                 ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.accentColor),
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor),
                   )
-                : const Icon(Icons.refresh_rounded, color: Color(0xFF94A3B8)),
+                : const Icon(Icons.refresh_rounded, color: AppTheme.textSecondary, size: 19),
             tooltip: 'Sync now',
             onPressed: () => _fetchEntries(),
           ),
           const SizedBox(width: 4),
-          // Server Settings
           IconButton(
-            icon: const Icon(Icons.dns_rounded, color: Color(0xFF94A3B8)),
-            tooltip: 'Server connection',
+            icon: const Icon(Icons.tune_rounded, color: AppTheme.textSecondary, size: 19),
+            tooltip: 'Hub settings',
             onPressed: _showServerConfigDialog,
           ),
         ],
@@ -524,55 +469,44 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
   Widget _buildConnectionStrip() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: AppTheme.darkCard,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: _isConnected
-              ? AppTheme.successColor.withValues(alpha: 0.3)
-              : AppTheme.errorColor.withValues(alpha: 0.3),
-        ),
+        color: AppTheme.surfaceDark,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: AppTheme.glassBorder),
       ),
       child: Row(
         children: [
           Container(
-            width: 8,
-            height: 8,
+            width: 6,
+            height: 6,
             decoration: BoxDecoration(
               color: _isConnected ? AppTheme.successColor : AppTheme.errorColor,
               shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: (_isConnected ? AppTheme.successColor : AppTheme.errorColor).withValues(alpha: 0.5),
-                  blurRadius: 6,
-                  spreadRadius: 1,
-                ),
-              ],
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               _isConnected
-                  ? 'Connected to Hub: $_serverUrl • ${_entries.length} items synced'
+                  ? 'Connected to Hub ($_serverUrl) • ${_entries.length} items synced'
                   : (_errorMessage ?? 'Connecting to $_serverUrl...'),
               style: TextStyle(
                 fontSize: 12,
-                color: _isConnected ? const Color(0xFFE2E8F0) : const Color(0xFFF87171),
-                fontWeight: FontWeight.w500,
+                color: _isConnected ? AppTheme.textPrimary : const Color(0xFFF87171),
+                fontWeight: FontWeight.w400,
               ),
               overflow: TextOverflow.ellipsis,
             ),
           ),
           TextButton(
             style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
             onPressed: _showServerConfigDialog,
-            child: const Text('Change Hub', style: TextStyle(fontSize: 12, color: AppTheme.accentColor)),
+            child: const Text('Configure', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
           ),
         ],
       ),
@@ -582,108 +516,98 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
   Widget _buildComposer() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppTheme.darkCard,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: AppTheme.glassBorder),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.25),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              const Icon(Icons.send_rounded, size: 16, color: AppTheme.accentColor),
-              const SizedBox(width: 8),
-              const Text(
-                'Push to All Connected Devices',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.white),
-              ),
-              const Spacer(),
-              // Keyboard shortcut badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0F172A),
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: const Color(0xFF334155)),
-                ),
-                child: const Text(
-                  '⌘ + Enter',
-                  style: TextStyle(fontSize: 10, fontFamily: 'monospace', color: Color(0xFF94A3B8)),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
           TextField(
             controller: _composerController,
-            maxLines: 3,
-            style: const TextStyle(fontSize: 14, height: 1.45),
-            decoration: InputDecoration(
-              hintText: 'Type or paste anything here to sync to your Mac and Android phone...',
-              filled: true,
-              fillColor: const Color(0xFF0B101B),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: AppTheme.glassBorder),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: AppTheme.glassBorder),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: AppTheme.primaryLight, width: 1.5),
-              ),
-              contentPadding: const EdgeInsets.all(14),
+            minLines: 2,
+            maxLines: 4,
+            style: const TextStyle(fontSize: 13.5, height: 1.45, color: AppTheme.textPrimary),
+            decoration: const InputDecoration(
+              hintText: 'Type or paste to broadcast across your devices...',
+              hintStyle: TextStyle(color: AppTheme.textMuted, fontSize: 13),
+              filled: false,
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              contentPadding: EdgeInsets.zero,
             ),
             onSubmitted: (_) => _sendText(),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
+          const Divider(color: Color(0xFF191C26), height: 1),
+          const SizedBox(height: 8),
           Row(
             children: [
+              // Shortcut hint
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0F1016),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: AppTheme.glassBorder),
+                ),
+                child: const Text(
+                  '⌘ Enter',
+                  style: TextStyle(fontSize: 10, fontFamily: 'monospace', color: AppTheme.textSecondary),
+                ),
+              ),
+              const SizedBox(width: 6),
+              const Text(
+                'to broadcast',
+                style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
+              ),
+              const Spacer(),
               // Paste button
               OutlinedButton.icon(
-                icon: const Icon(Icons.content_paste_rounded, size: 14),
+                icon: const Icon(Icons.content_paste_rounded, size: 13),
                 label: const Text('Paste'),
                 style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  side: const BorderSide(color: AppTheme.glassBorder),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                  foregroundColor: AppTheme.textSecondary,
+                  textStyle: const TextStyle(fontSize: 12),
                 ),
                 onPressed: _pasteFromSystemClipboard,
               ),
               const SizedBox(width: 8),
-              if (_composerController.text.isNotEmpty)
+              if (_composerController.text.isNotEmpty) ...[
                 TextButton(
                   onPressed: () {
                     _composerController.clear();
                     setState(() {});
                   },
-                  child: const Text('Clear', style: TextStyle(color: Color(0xFF64748B), fontSize: 12)),
+                  child: const Text('Clear', style: TextStyle(color: AppTheme.textMuted, fontSize: 12)),
                 ),
-              const Spacer(),
-              ElevatedButton.icon(
+                const SizedBox(width: 4),
+              ],
+              ElevatedButton(
                 onPressed: _isSending ? null : _sendText,
-                icon: _isSending
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                      )
-                    : const Icon(Icons.rocket_launch_rounded, size: 15),
-                label: const Text('Push to Devices'),
                 style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                  backgroundColor: AppTheme.primaryColor,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  backgroundColor: Colors.white,
+                  foregroundColor: const Color(0xFF0C0D11),
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                 ),
+                child: _isSending
+                    ? const SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0C0D11)),
+                      )
+                    : const Text(
+                        'Broadcast',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
               ),
             ],
           ),
@@ -697,31 +621,43 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          // Filter Chips
-          _buildFilterChip('All', '${_entries.length}', _FilterCategory.all),
-          const SizedBox(width: 8),
-          _buildFilterChip('🔗 Links', '$linkCount', _FilterCategory.links),
-          const SizedBox(width: 8),
-          _buildFilterChip('💻 Code', '$codeCount', _FilterCategory.code),
-          const SizedBox(width: 8),
-          _buildFilterChip('📝 Notes', '${_entries.length - linkCount - codeCount}', _FilterCategory.text),
+          // Clean Segmented Tabs (No Emojis)
+          Container(
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0F1016),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: AppTheme.glassBorder),
+            ),
+            child: Row(
+              children: [
+                _buildSegmentTab('All', '${_entries.length}', _FilterCategory.all),
+                _buildSegmentTab('Links', '$linkCount', _FilterCategory.links),
+                _buildSegmentTab('Code', '$codeCount', _FilterCategory.code),
+                _buildSegmentTab('Text', '${_entries.length - linkCount - codeCount}', _FilterCategory.text),
+              ],
+            ),
+          ),
           const Spacer(),
 
-          // Search Field
+          // Clean Search Field
           AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            width: _isSearching ? 220 : 38,
-            height: 38,
+            duration: const Duration(milliseconds: 150),
+            width: _isSearching ? 200 : 34,
+            height: 32,
             child: _isSearching
                 ? TextField(
                     controller: _searchController,
                     autofocus: true,
-                    style: const TextStyle(fontSize: 13, color: Colors.white),
+                    style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary),
                     decoration: InputDecoration(
                       hintText: 'Search...',
-                      prefixIcon: const Icon(Icons.search_rounded, size: 16, color: Color(0xFF94A3B8)),
+                      hintStyle: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
+                      prefixIcon: const Icon(Icons.search_rounded, size: 14, color: AppTheme.textSecondary),
                       suffixIcon: IconButton(
-                        icon: const Icon(Icons.close_rounded, size: 16, color: Color(0xFF94A3B8)),
+                        icon: const Icon(Icons.close_rounded, size: 14, color: AppTheme.textSecondary),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
                         onPressed: () {
                           _searchController.clear();
                           setState(() {
@@ -730,13 +666,29 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
                           });
                         },
                       ),
-                      contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                      filled: true,
+                      fillColor: const Color(0xFF0F1016),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(6),
+                        borderSide: const BorderSide(color: AppTheme.glassBorder),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(6),
+                        borderSide: const BorderSide(color: AppTheme.glassBorder),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(6),
+                        borderSide: const BorderSide(color: AppTheme.glassBorderHover),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
                     ),
                     onChanged: (val) => setState(() => _searchQuery = val),
                   )
                 : IconButton(
-                    icon: const Icon(Icons.search_rounded, size: 20, color: Color(0xFF94A3B8)),
-                    tooltip: 'Search history',
+                    icon: const Icon(Icons.search_rounded, size: 18, color: AppTheme.textSecondary),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    tooltip: 'Search',
                     onPressed: () => setState(() => _isSearching = true),
                   ),
           ),
@@ -745,22 +697,16 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
     );
   }
 
-  Widget _buildFilterChip(String label, String count, _FilterCategory category) {
+  Widget _buildSegmentTab(String label, String count, _FilterCategory category) {
     final isSelected = _currentFilter == category;
     return InkWell(
       onTap: () => setState(() => _currentFilter = category),
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(4),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-          color: isSelected
-              ? AppTheme.primaryColor.withValues(alpha: 0.2)
-              : AppTheme.darkCard,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: isSelected ? AppTheme.primaryLight : AppTheme.glassBorder,
-            width: isSelected ? 1.5 : 1,
-          ),
+          color: isSelected ? AppTheme.darkCard : Colors.transparent,
+          borderRadius: BorderRadius.circular(4),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -769,26 +715,17 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
               label,
               style: TextStyle(
                 fontSize: 12,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                color: isSelected ? Colors.white : const Color(0xFF94A3B8),
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                color: isSelected ? AppTheme.textPrimary : AppTheme.textSecondary,
               ),
             ),
             const SizedBox(width: 5),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? AppTheme.primaryColor
-                    : const Color(0xFF0F172A),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                count,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: isSelected ? Colors.white : const Color(0xFF64748B),
-                ),
+            Text(
+              count,
+              style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w500,
+                color: isSelected ? AppTheme.textSecondary : AppTheme.textMuted,
               ),
             ),
           ],

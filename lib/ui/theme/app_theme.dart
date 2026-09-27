@@ -2,46 +2,46 @@ import 'package:flutter/material.dart';
 
 class AppTheme {
   // Brand colors
-  static const primaryColor = Color(0xFF6366F1); // Indigo Vibrant
-  static const primaryLight = Color(0xFF818CF8);
-  static const primaryDark = Color(0xFF4F46E5);
-  static const accentColor = Color(0xFF06B6D4); // Cyber Cyan
-  static const violetColor = Color(0xFF8B5CF6); // Electric Violet
-  static const emeraldColor = Color(0xFF10B981); // Emerald Green
+  static const primaryColor = Color(0xFF3B82F6); // Electric Blue
+  static const primaryLight = Color(0xFF60A5FA);
+  static const primaryDark = Color(0xFF2563EB);
+  static const accentColor = Color(0xFF38BDF8); // Sky
+  static const violetColor = Color(0xFF818CF8); // Indigo
+  static const emeraldColor = Color(0xFF10B981); // Emerald
   
   // Surfaces & Backgrounds
-  static const darkBg = Color(0xFF0A0D14); // Deepest OLED Navy
-  static const surfaceDark = Color(0xFF101623); // Elevated surface
-  static const darkCard = Color(0xFF151C2C); // Card background
-  static const darkCardHover = Color(0xFF1C263B); // Hover state
-  static const glassBorder = Color(0xFF232D42); // Subtle frosted border
-  static const glassBorderHover = Color(0xFF384666); // Active border
+  static const darkBg = Color(0xFF0C0D11); // Studio Obsidian
+  static const surfaceDark = Color(0xFF101217); // Elevated surface
+  static const darkCard = Color(0xFF14151D); // Card surface
+  static const darkCardHover = Color(0xFF181A23); // Hover state
+  static const glassBorder = Color(0xFF1E222E); // Clean slate border
+  static const glassBorderHover = Color(0xFF2B3040); // Active border
 
   // Status colors
-  static const successColor = Color(0xFF10B981); // Emerald
-  static const warningColor = Color(0xFFF59E0B); // Amber
-  static const errorColor = Color(0xFFEF4444); // Rose
+  static const successColor = Color(0xFF10B981);
+  static const warningColor = Color(0xFFF59E0B);
+  static const errorColor = Color(0xFFEF4444);
 
   // Typography colors
-  static const textPrimary = Color(0xFFF8FAFC);
-  static const textSecondary = Color(0xFF94A3B8);
-  static const textMuted = Color(0xFF64748B);
+  static const textPrimary = Color(0xFFEDEDED);
+  static const textSecondary = Color(0xFF8E93A4);
+  static const textMuted = Color(0xFF525768);
 
   // Gradients
   static const primaryGradient = LinearGradient(
-    colors: [primaryColor, violetColor],
+    colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
   static const cyanGradient = LinearGradient(
-    colors: [primaryColor, accentColor],
+    colors: [Color(0xFF1E222E), Color(0xFF14151D)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
   static const surfaceGradient = LinearGradient(
-    colors: [Color(0xFF172033), Color(0xFF111726)],
+    colors: [Color(0xFF14151D), Color(0xFF0F1016)],
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
   );

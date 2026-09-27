@@ -105,38 +105,28 @@ class _ClipboardCardState extends State<ClipboardCard> {
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        duration: const Duration(milliseconds: 150),
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         decoration: BoxDecoration(
           color: _isHovered ? AppTheme.darkCardHover : AppTheme.darkCard,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: _isHovered
-                ? AppTheme.primaryColor.withValues(alpha: 0.5)
-                : AppTheme.glassBorder,
-            width: _isHovered ? 1.5 : 1,
+            color: _isHovered ? AppTheme.glassBorderHover : AppTheme.glassBorder,
+            width: 1,
           ),
-          boxShadow: _isHovered
-              ? [
-                  BoxShadow(
-                    color: AppTheme.primaryColor.withValues(alpha: 0.12),
-                    blurRadius: 16,
-                    offset: const Offset(0, 4),
-                  ),
-                ]
-              : [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.2),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.18),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
+            ),
+          ],
         ),
         child: InkWell(
           onTap: _handleCopy,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(8),
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -145,56 +135,49 @@ class _ClipboardCardState extends State<ClipboardCard> {
                   children: [
                     // Device Origin Pill
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: widget.isLocal
-                            ? AppTheme.primaryColor.withValues(alpha: 0.15)
-                            : AppTheme.accentColor.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(8),
+                        color: const Color(0xFF0F1016),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: AppTheme.glassBorder),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
                             deviceIcon,
-                            size: 13,
-                            color: widget.isLocal ? AppTheme.primaryLight : AppTheme.accentColor,
+                            size: 12,
+                            color: const Color(0xFF8E93A4),
                           ),
-                          const SizedBox(width: 5),
+                          const SizedBox(width: 4),
                           Text(
                             deviceLabel,
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: widget.isLocal ? AppTheme.primaryLight : AppTheme.accentColor,
-                              letterSpacing: 0.3,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF8E93A4),
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
 
                     // Content Type Pill
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: contentType == _ContentType.url
-                            ? AppTheme.accentColor.withValues(alpha: 0.12)
-                            : (isCode
-                                ? AppTheme.violetColor.withValues(alpha: 0.12)
-                                : const Color(0xFF334155).withValues(alpha: 0.5)),
-                        borderRadius: BorderRadius.circular(6),
+                        color: const Color(0xFF0F1016),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: AppTheme.glassBorder),
                       ),
                       child: Text(
                         contentType.name.toUpperCase(),
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: contentType == _ContentType.url
-                              ? AppTheme.accentColor
-                              : (isCode ? AppTheme.violetColor : const Color(0xFF94A3B8)),
-                          letterSpacing: 0.5,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF8E93A4),
+                          letterSpacing: 0.2,
                         ),
                       ),
                     ),
@@ -215,9 +198,25 @@ class _ClipboardCardState extends State<ClipboardCard> {
                     // Character count
                     Text(
                       '${widget.entry.content.length} chars',
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF475569), fontFamily: 'monospace'),
+                      style: const TextStyle(fontSize: 11, color: Color(0xFF525768), fontFamily: 'monospace'),
                     ),
                     const SizedBox(width: 8),
+
+                    // Copy button with checkmark morph
+                    IconButton(
+                      icon: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 150),
+                        child: _copied
+                            ? const Icon(Icons.check_rounded, key: ValueKey('copied'), size: 16, color: AppTheme.successColor)
+                            : const Icon(Icons.copy_rounded, key: ValueKey('copy'), size: 15, color: Color(0xFF64748B)),
+                      ),
+                      splashRadius: 16,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: _handleCopy,
+                      tooltip: _copied ? 'Copied!' : 'Copy',
+                    ),
+                    const SizedBox(width: 6),
 
                     // Delete button
                     IconButton(
@@ -231,7 +230,7 @@ class _ClipboardCardState extends State<ClipboardCard> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
 
                 // Content Snippet
                 Container(
@@ -241,9 +240,9 @@ class _ClipboardCardState extends State<ClipboardCard> {
                       : EdgeInsets.zero,
                   decoration: isCode || isUrl
                       ? BoxDecoration(
-                          color: const Color(0xFF0C101A),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFF1E283D)),
+                          color: const Color(0xFF090A0D),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0xFF1E222E)),
                         )
                       : null,
                   child: Text(
@@ -254,7 +253,7 @@ class _ClipboardCardState extends State<ClipboardCard> {
                       fontSize: isCode || isUrl ? 13 : 14,
                       height: 1.5,
                       fontFamily: isCode || isUrl ? 'monospace' : null,
-                      color: isUrl ? AppTheme.accentColor : const Color(0xFFF1F5F9),
+                      color: isUrl ? const Color(0xFF60A5FA) : const Color(0xFFEDEDED),
                     ),
                   ),
                 ),
@@ -270,16 +269,16 @@ class _ClipboardCardState extends State<ClipboardCard> {
                         children: [
                           Icon(
                             _expanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
-                            size: 16,
-                            color: AppTheme.accentColor,
+                            size: 15,
+                            color: const Color(0xFF8E93A4),
                           ),
                           const SizedBox(width: 4),
                           Text(
                             _expanded ? 'Show less' : 'Show full content',
                             style: const TextStyle(
-                              color: AppTheme.accentColor,
+                              color: Color(0xFF8E93A4),
                               fontSize: 11,
-                              fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ],
@@ -287,74 +286,6 @@ class _ClipboardCardState extends State<ClipboardCard> {
                     ),
                   ),
                 ],
-
-                const SizedBox(height: 12),
-                const Divider(color: Color(0xFF1E293B), height: 1),
-                const SizedBox(height: 8),
-
-                // Bottom Action Bar: 1-click Copy feedback
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Click card to copy',
-                      style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                    ),
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: _copied
-                            ? AppTheme.successColor.withValues(alpha: 0.15)
-                            : AppTheme.primaryColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: _copied
-                              ? AppTheme.successColor.withValues(alpha: 0.4)
-                              : AppTheme.primaryColor.withValues(alpha: 0.2),
-                        ),
-                      ),
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 200),
-                        child: _copied
-                            ? const Row(
-                                key: ValueKey('copied'),
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.check_rounded, size: 14, color: AppTheme.successColor),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    'COPIED',
-                                    style: TextStyle(
-                                      color: AppTheme.successColor,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
-                                ],
-                              )
-                            : const Row(
-                                key: ValueKey('copy'),
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.copy_rounded, size: 13, color: AppTheme.primaryLight),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    'COPY',
-                                    style: TextStyle(
-                                      color: AppTheme.primaryLight,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                      ),
-                    ),
-                  ],
-                ),
               ],
             ),
           ),

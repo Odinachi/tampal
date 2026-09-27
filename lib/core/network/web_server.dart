@@ -349,26 +349,29 @@ class WebServer {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ClipSync Web Portal</title>
-  <meta name="description" content="Real-time Wi-Fi clipboard synchronization dashboard for ClipSync.">
+  <title>ClipSync — Local Clipboard Sync</title>
+  <meta name="description" content="Local Wi-Fi clipboard synchronization dashboard for ClipSync.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-dark: #0B0F19;
-      --card-bg: #151C2C;
-      --card-hover: #1A2337;
-      --border-color: rgba(255, 255, 255, 0.08);
-      --border-active: rgba(99, 102, 241, 0.4);
-      --primary: #6366F1;
-      --primary-hover: #4F46E5;
-      --accent: #06B6D4;
+      --bg: #0C0D11;
+      --surface: #14151D;
+      --surface-hover: #181A23;
+      --surface-active: #1D202B;
+      --surface-subtle: #0F1016;
+      --border: #1E222E;
+      --border-hover: #2B3040;
+      --border-focus: #3E455B;
+      --text-primary: #EDEDED;
+      --text-secondary: #8E93A4;
+      --text-tertiary: #525768;
+      --accent: #3B82F6;
+      --accent-hover: #2563EB;
       --success: #10B981;
       --error: #EF4444;
-      --text-main: #F1F5F9;
-      --text-muted: #94A3B8;
-      --text-sub: #64748B;
+      --radius: 8px;
     }
 
     * {
@@ -378,38 +381,26 @@ class WebServer {
     }
 
     body {
-      background-color: var(--bg-dark);
-      color: var(--text-main);
+      background-color: var(--bg);
+      color: var(--text-primary);
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
-      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
 
-    /* Ambient background gradient glow */
-    body::before {
-      content: '';
-      position: fixed;
-      top: -150px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 700px;
-      height: 400px;
-      background: radial-gradient(circle, rgba(99, 102, 241, 0.12) 0%, rgba(6, 182, 212, 0.05) 50%, transparent 70%);
-      pointer-events: none;
-      z-index: 0;
-    }
-
+    /* Top Navigation Header */
     header {
       position: sticky;
       top: 0;
-      z-index: 50;
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      background: rgba(11, 15, 25, 0.85);
-      border-bottom: 1px solid var(--border-color);
-      padding: 14px 24px;
+      z-index: 40;
+      background: rgba(12, 13, 17, 0.92);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 24px;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -418,211 +409,144 @@ class WebServer {
     .brand {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
     }
 
-    .brand-icon {
-      width: 36px;
-      height: 36px;
-      background: linear-gradient(135deg, var(--primary), var(--accent));
-      border-radius: 10px;
+    .brand-mark {
+      width: 28px;
+      height: 28px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+      color: var(--text-primary);
     }
 
-    .brand-icon svg {
-      width: 20px;
-      height: 20px;
-      fill: #ffffff;
+    .brand-mark svg {
+      width: 15px;
+      height: 15px;
     }
 
-    .brand-text h1 {
-      font-size: 1.15rem;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      background: linear-gradient(to right, #FFFFFF, #CBD5E1);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-
-    .brand-text span {
-      font-size: 0.75rem;
-      color: var(--text-sub);
-    }
-
-    .header-actions {
+    .brand-meta {
       display: flex;
-      align-items: center;
-      gap: 12px;
+      align-items: baseline;
+      gap: 8px;
     }
 
-    .pill-badge {
+    .brand-name {
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+    }
+
+    .brand-sub {
+      font-size: 0.75rem;
+      color: var(--text-tertiary);
+      font-weight: 400;
+    }
+
+    .status-badge {
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      padding: 5px 12px;
+      padding: 4px 10px;
       border-radius: 20px;
-      font-size: 0.78rem;
-      font-weight: 600;
-      border: 1px solid var(--border-color);
-      background: rgba(255, 255, 255, 0.03);
+      font-size: 0.75rem;
+      font-weight: 500;
+      border: 1px solid var(--border);
+      background: var(--surface-subtle);
+      color: var(--text-secondary);
     }
 
-    .pill-badge.connected {
-      color: var(--success);
-      border-color: rgba(16, 185, 129, 0.3);
-      background: rgba(16, 185, 129, 0.1);
-    }
-
-    .pill-badge.disconnected {
-      color: var(--error);
-      border-color: rgba(239, 68, 68, 0.3);
-      background: rgba(239, 68, 68, 0.1);
-    }
-
-    .dot {
-      width: 8px;
-      height: 8px;
+    .status-dot {
+      width: 6px;
+      height: 6px;
       border-radius: 50%;
-      background: currentColor;
-      box-shadow: 0 0 8px currentColor;
+      background: var(--text-tertiary);
     }
 
+    .status-badge.connected .status-dot {
+      background: var(--success);
+      box-shadow: 0 0 6px rgba(16, 185, 129, 0.4);
+    }
+
+    .status-badge.connected {
+      color: var(--text-primary);
+    }
+
+    .status-badge.disconnected .status-dot {
+      background: var(--error);
+    }
+
+    /* Main Container */
     main {
       flex: 1;
-      max-width: 960px;
+      max-width: 820px;
       width: 100%;
       margin: 0 auto;
-      padding: 24px 20px 60px;
-      position: relative;
-      z-index: 10;
+      padding: 24px 20px 80px;
     }
 
-    /* Send Box Section */
-    .composer-card {
-      background: var(--card-bg);
-      border: 1px solid var(--border-color);
-      border-radius: 16px;
-      padding: 16px;
+    /* Raycast-style Command Composer */
+    .composer {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
       margin-bottom: 24px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
-      transition: border-color 0.2s, box-shadow 0.2s;
+      transition: border-color 0.15s, box-shadow 0.15s;
     }
 
-    .composer-card:focus-within {
-      border-color: var(--primary);
-      box-shadow: 0 10px 30px rgba(99, 102, 241, 0.15);
+    .composer:focus-within {
+      border-color: var(--border-focus);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
     }
 
-    .composer-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 10px;
-    }
-
-    .composer-title {
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: var(--text-muted);
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .composer-title svg {
-      width: 16px;
-      height: 16px;
-      fill: var(--primary);
-    }
-
-    .composer-card textarea {
+    .composer textarea {
       width: 100%;
-      background: rgba(11, 15, 25, 0.6);
-      border: 1px solid var(--border-color);
-      border-radius: 10px;
-      padding: 12px 14px;
-      color: var(--text-main);
+      background: transparent;
+      border: none;
+      color: var(--text-primary);
       font-family: inherit;
-      font-size: 0.95rem;
+      font-size: 0.92rem;
+      line-height: 1.5;
       resize: vertical;
-      min-height: 80px;
+      min-height: 54px;
       outline: none;
-      transition: border-color 0.2s;
     }
 
-    .composer-card textarea:focus {
-      border-color: rgba(99, 102, 241, 0.6);
+    .composer textarea::placeholder {
+      color: var(--text-tertiary);
     }
 
-    .composer-footer {
+    .composer-bar {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-top: 12px;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.04);
     }
 
-    .shortcut-hint {
-      font-size: 0.75rem;
-      color: var(--text-sub);
-    }
-
-    .btn-send {
-      background: linear-gradient(135deg, var(--primary), var(--primary-hover));
-      color: white;
-      border: none;
-      border-radius: 10px;
-      padding: 8px 18px;
-      font-size: 0.88rem;
-      font-weight: 600;
-      cursor: pointer;
+    .shortcut-tag {
+      font-size: 0.72rem;
+      color: var(--text-tertiary);
       display: inline-flex;
       align-items: center;
-      gap: 8px;
-      transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+      gap: 4px;
     }
 
-    .btn-send:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
-    }
-
-    .btn-send:active {
-      transform: translateY(0);
-    }
-
-    .btn-send svg {
-      width: 16px;
-      height: 16px;
-      fill: currentColor;
-    }
-
-    .btn-secondary {
-      background: rgba(255, 255, 255, 0.05);
-      color: var(--text-main);
-      border: 1px solid var(--border-color);
-      border-radius: 10px;
-      padding: 8px 14px;
-      font-size: 0.85rem;
-      font-weight: 600;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      transition: background 0.15s, border-color 0.15s;
-    }
-
-    .btn-secondary:hover {
-      background: rgba(255, 255, 255, 0.1);
-      border-color: rgba(255, 255, 255, 0.2);
-    }
-
-    .btn-secondary svg {
-      width: 14px;
-      height: 14px;
-      fill: currentColor;
+    kbd {
+      background: var(--surface-subtle);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-family: inherit;
+      font-size: 0.7rem;
+      color: var(--text-secondary);
     }
 
     .composer-actions {
@@ -631,223 +555,232 @@ class WebServer {
       gap: 8px;
     }
 
-    /* Category Filters */
-    .category-filters {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 16px;
-      overflow-x: auto;
-      padding-bottom: 2px;
+    .btn-subtle {
+      background: transparent;
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 5px 10px;
+      font-size: 0.78rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: color 0.15s, border-color 0.15s, background-color 0.15s;
     }
 
-    .filter-pill {
-      background: var(--card-bg);
-      border: 1px solid var(--border-color);
-      color: var(--text-muted);
+    .btn-subtle:hover {
+      color: var(--text-primary);
+      background: var(--surface-hover);
+      border-color: var(--border-hover);
+    }
+
+    .btn-primary {
+      background: #FFFFFF;
+      color: #0C0D11;
+      border: none;
+      border-radius: 6px;
+      padding: 5px 14px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+
+    .btn-primary:hover {
+      opacity: 0.92;
+    }
+
+    .btn-primary:active {
+      transform: scale(0.98);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    /* Toolbar: Segmented Tabs & Search */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .segmented-control {
+      display: inline-flex;
+      background: var(--surface-subtle);
+      border: 1px solid var(--border);
       border-radius: 8px;
-      padding: 6px 12px;
-      font-size: 0.82rem;
+      padding: 2px;
+      gap: 2px;
+    }
+
+    .segment-tab {
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      border-radius: 6px;
+      padding: 5px 12px;
+      font-size: 0.8rem;
       font-weight: 500;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      transition: all 0.15s ease;
-      white-space: nowrap;
+      transition: color 0.12s, background-color 0.12s;
     }
 
-    .filter-pill:hover {
-      border-color: var(--primary);
-      color: var(--text-main);
+    .segment-tab:hover {
+      color: var(--text-primary);
     }
 
-    .filter-pill.active {
-      background: rgba(99, 102, 241, 0.15);
-      border-color: var(--primary);
-      color: #ffffff;
-      font-weight: 700;
+    .segment-tab.active {
+      background: var(--surface);
+      color: var(--text-primary);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
     }
 
-    .count-badge {
-      background: rgba(0, 0, 0, 0.4);
-      padding: 1px 6px;
-      border-radius: 10px;
+    .tab-count {
       font-size: 0.72rem;
-      font-weight: 700;
-      color: var(--text-sub);
+      color: var(--text-tertiary);
+      font-variant-numeric: tabular-nums;
     }
 
-    .filter-pill.active .count-badge {
-      background: var(--primary);
-      color: #ffffff;
+    .segment-tab.active .tab-count {
+      color: var(--text-secondary);
     }
 
-    /* Search & Filter Header */
-    .controls-bar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 16px;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-
-    .search-wrapper {
+    .search-box {
       position: relative;
+      min-width: 200px;
       flex: 1;
-      min-width: 240px;
+      max-width: 280px;
     }
 
-    .search-wrapper input {
+    .search-box input {
       width: 100%;
-      background: var(--card-bg);
-      border: 1px solid var(--border-color);
-      border-radius: 12px;
-      padding: 10px 14px 10px 38px;
-      color: var(--text-main);
-      font-size: 0.88rem;
+      background: var(--surface-subtle);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 12px 6px 30px;
+      color: var(--text-primary);
+      font-size: 0.82rem;
       outline: none;
-      transition: border-color 0.2s;
+      transition: border-color 0.15s;
     }
 
-    .search-wrapper input:focus {
-      border-color: var(--primary);
+    .search-box input::placeholder {
+      color: var(--text-tertiary);
     }
 
-    .search-icon {
+    .search-box input:focus {
+      border-color: var(--border-focus);
+    }
+
+    .search-box svg {
       position: absolute;
-      left: 12px;
+      left: 10px;
       top: 50%;
       transform: translateY(-50%);
-      width: 16px;
-      height: 16px;
-      fill: var(--text-sub);
+      width: 13px;
+      height: 13px;
+      color: var(--text-tertiary);
     }
 
-    .stats-count {
-      font-size: 0.82rem;
-      color: var(--text-sub);
-      font-weight: 500;
-    }
-
-    /* Clipboard Cards Feed */
+    /* Clipboard Feed */
     .feed {
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 8px;
     }
 
     .entry-card {
-      background: var(--card-bg);
-      border: 1px solid var(--border-color);
-      border-radius: 14px;
-      padding: 16px;
-      transition: border-color 0.2s, transform 0.2s, background-color 0.2s;
-      position: relative;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      transition: background-color 0.15s, border-color 0.15s, transform 0.12s;
       cursor: pointer;
     }
 
     .entry-card:hover {
-      background: var(--card-hover);
-      border-color: var(--border-active);
-      transform: translateY(-2px);
+      background: var(--surface-hover);
+      border-color: var(--border-hover);
     }
 
     .entry-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
     }
 
-    .entry-meta {
+    .entry-origin {
       display: flex;
       align-items: center;
       gap: 8px;
     }
 
-    .device-badge {
+    .device-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
       font-size: 0.72rem;
-      font-weight: 600;
-      padding: 2px 8px;
-      border-radius: 6px;
-      text-transform: uppercase;
-      letter-spacing: 0.03em;
+      font-weight: 500;
+      color: var(--text-secondary);
     }
 
-    .device-badge.macos, .device-badge.desktop {
-      background: rgba(99, 102, 241, 0.15);
-      color: #A5B4FC;
+    .device-tag svg {
+      width: 12px;
+      height: 12px;
+      color: var(--text-tertiary);
     }
 
-    .device-badge.android, .device-badge.mobile {
-      background: rgba(6, 182, 212, 0.15);
-      color: #67E8F9;
-    }
-
-    .device-badge.web-client {
-      background: rgba(16, 185, 129, 0.15);
-      color: #6EE7B7;
-    }
-
-    .type-badge {
+    .type-tag {
       font-size: 0.68rem;
-      font-weight: 700;
-      padding: 2px 7px;
-      border-radius: 6px;
-      letter-spacing: 0.04em;
+      font-weight: 500;
+      padding: 1px 6px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      background: var(--surface-subtle);
     }
 
-    .type-badge.type-links {
-      background: rgba(6, 182, 212, 0.15);
-      color: #38BDF8;
-      border: 1px solid rgba(6, 182, 212, 0.3);
-    }
-
-    .type-badge.type-code {
-      background: rgba(245, 158, 11, 0.15);
-      color: #FCD34D;
-      border: 1px solid rgba(245, 158, 11, 0.3);
-    }
-
-    .type-badge.type-text {
-      background: rgba(148, 163, 184, 0.12);
-      color: #CBD5E1;
-      border: 1px solid rgba(148, 163, 184, 0.2);
-    }
-
-    .timestamp {
-      font-size: 0.75rem;
-      color: var(--text-sub);
+    .entry-time {
+      font-size: 0.72rem;
+      color: var(--text-tertiary);
     }
 
     .entry-actions {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 2px;
     }
 
     .action-btn {
       background: transparent;
       border: none;
-      color: var(--text-sub);
+      color: var(--text-tertiary);
       cursor: pointer;
-      padding: 6px;
-      border-radius: 8px;
-      display: flex;
+      padding: 4px;
+      border-radius: 4px;
+      display: inline-flex;
       align-items: center;
       justify-content: center;
-      transition: color 0.15s, background-color 0.15s, transform 0.15s;
+      transition: color 0.15s, background-color 0.15s;
     }
 
     .action-btn:hover {
-      color: var(--text-main);
+      color: var(--text-primary);
       background: rgba(255, 255, 255, 0.06);
-    }
-
-    .action-btn.copy-btn:hover {
-      color: #38BDF8;
-      background: rgba(6, 182, 212, 0.12);
     }
 
     .action-btn.delete-btn:hover {
@@ -856,209 +789,184 @@ class WebServer {
     }
 
     .action-btn svg {
-      width: 16px;
-      height: 16px;
-      fill: currentColor;
+      width: 14px;
+      height: 14px;
     }
 
-    .entry-content {
-      font-size: 0.92rem;
+    .entry-body {
+      font-size: 0.88rem;
       line-height: 1.5;
-      color: var(--text-main);
+      color: var(--text-primary);
       word-break: break-word;
       white-space: pre-wrap;
-      max-height: 160px;
+      max-height: 140px;
       overflow-y: hidden;
-      position: relative;
     }
 
-    .entry-content.monospace {
+    .entry-body.is-code {
       font-family: 'JetBrains Mono', monospace;
-      font-size: 0.85rem;
-      color: #A5F3FC;
-      background: rgba(11, 15, 25, 0.4);
+      font-size: 0.8rem;
+      background: #090A0D;
+      border: 1px solid var(--border);
+      border-radius: 6px;
       padding: 8px 10px;
-      border-radius: 8px;
+      color: #E2E8F0;
+    }
+
+    .entry-body.is-url {
+      color: #60A5FA;
     }
 
     .entry-footer {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-top: 10px;
-      font-size: 0.75rem;
-      color: var(--text-sub);
-    }
-
-    .click-hint {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      color: var(--primary);
-      opacity: 0;
-      transition: opacity 0.2s;
-    }
-
-    .entry-card:hover .click-hint {
-      opacity: 1;
+      margin-top: 8px;
+      font-size: 0.72rem;
+      color: var(--text-tertiary);
     }
 
     /* Empty state */
     .empty-state {
       text-align: center;
-      padding: 60px 20px;
-      background: var(--card-bg);
-      border: 1px dashed var(--border-color);
-      border-radius: 16px;
+      padding: 48px 16px;
+      border: 1px dashed var(--border);
+      border-radius: 8px;
       margin-top: 12px;
     }
 
-    .empty-icon {
-      width: 48px;
-      height: 48px;
-      margin: 0 auto 16px;
-      fill: var(--text-sub);
-      opacity: 0.6;
-    }
-
     .empty-title {
-      font-size: 1.05rem;
-      font-weight: 600;
-      color: var(--text-main);
-      margin-bottom: 6px;
+      font-size: 0.88rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
     }
 
     .empty-subtitle {
-      font-size: 0.85rem;
-      color: var(--text-muted);
-      max-width: 360px;
-      margin: 0 auto;
+      font-size: 0.78rem;
+      color: var(--text-tertiary);
     }
 
-    /* Toast Notification */
+    /* Raycast-style bottom toast */
     .toast {
       position: fixed;
       bottom: 24px;
-      right: 24px;
-      background: #1E293B;
-      border: 1px solid rgba(99, 102, 241, 0.4);
-      color: white;
-      padding: 12px 18px;
-      border-radius: 12px;
-      font-size: 0.85rem;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: #1C1E26;
+      border: 1px solid var(--border-hover);
+      color: var(--text-primary);
+      padding: 8px 14px;
+      border-radius: 20px;
+      font-size: 0.8rem;
       font-weight: 500;
       display: flex;
       align-items: center;
       gap: 8px;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-      transform: translateY(100px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
       opacity: 0;
-      transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s;
+      pointer-events: none;
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s;
       z-index: 100;
     }
 
     .toast.show {
-      transform: translateY(0);
+      transform: translateX(-50%) translateY(0);
       opacity: 1;
     }
 
     .toast-icon {
-      width: 16px;
-      height: 16px;
-      fill: var(--success);
+      width: 14px;
+      height: 14px;
+      color: var(--success);
     }
   </style>
 </head>
 <body>
 
-  <!-- Top Header Navigation -->
+  <!-- Top Navigation Header -->
   <header>
     <div class="brand">
-      <div class="brand-icon">
-        <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+          <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+        </svg>
       </div>
-      <div class="brand-text">
-        <h1 id="app-title">ClipSync Portal</h1>
-        <span id="server-meta">Connecting to desktop server...</span>
+      <div class="brand-meta">
+        <span class="brand-name">ClipSync</span>
+        <span id="server-meta" class="brand-sub">Local Network</span>
       </div>
     </div>
 
-    <div class="header-actions">
-      <div id="connection-badge" class="pill-badge disconnected">
-        <div class="dot"></div>
-        <span id="connection-status-text">Disconnected</span>
+    <div class="header-right">
+      <div id="connection-badge" class="status-badge disconnected">
+        <span class="status-dot"></span>
+        <span id="connection-status-text">Connecting</span>
       </div>
     </div>
   </header>
 
-  <!-- Main App Layout -->
+  <!-- Main Workspace -->
   <main>
-    <!-- Push Text Section -->
-    <section class="composer-card">
-      <div class="composer-header">
-        <div class="composer-title">
-          <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-          Send to All Connected Devices
+    <!-- Command Composer -->
+    <section class="composer">
+      <textarea id="send-input" placeholder="Type or paste to broadcast across your devices..." rows="2"></textarea>
+      <div class="composer-bar">
+        <div class="shortcut-tag">
+          <kbd>⌘</kbd> <kbd>Enter</kbd> <span>to broadcast</span>
         </div>
-      </div>
-      <textarea id="send-input" placeholder="Type or paste text here to immediately push to your Mac & Android phone..." rows="3"></textarea>
-      <div class="composer-footer">
-        <span class="shortcut-hint">Press <strong>Cmd/Ctrl + Enter</strong> to send</span>
         <div class="composer-actions">
-          <button id="paste-btn" class="btn-secondary" onclick="pasteFromClipboard()">
-            <svg viewBox="0 0 24 24"><path d="M19 2h-4.18C14.4.84 13.3 0 12 0c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm7 18H5V4h2v3h10V4h2v16z"/></svg>
+          <button id="paste-btn" class="btn-subtle" onclick="pasteFromClipboard()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
             Paste
           </button>
-          <button id="send-btn" class="btn-send">
-            <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-            Send to Devices
+          <button id="send-btn" class="btn-primary" onclick="sendText()">
+            Broadcast
           </button>
         </div>
       </div>
     </section>
 
-    <!-- Category Filter Bar -->
-    <div class="category-filters">
-      <button class="filter-pill active" data-filter="all" onclick="setCategoryFilter('all')">
-        All <span id="count-all" class="count-badge">0</span>
-      </button>
-      <button class="filter-pill" data-filter="links" onclick="setCategoryFilter('links')">
-        🔗 Links <span id="count-links" class="count-badge">0</span>
-      </button>
-      <button class="filter-pill" data-filter="code" onclick="setCategoryFilter('code')">
-        💻 Code <span id="count-code" class="count-badge">0</span>
-      </button>
-      <button class="filter-pill" data-filter="text" onclick="setCategoryFilter('text')">
-        📝 Notes <span id="count-text" class="count-badge">0</span>
-      </button>
-    </div>
-
-    <!-- Controls Bar -->
-    <div class="controls-bar">
-      <div class="search-wrapper">
-        <svg class="search-icon" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
-        <input type="text" id="search-input" placeholder="Search clipboard entries..." autocomplete="off">
+    <!-- Toolbar: Clean Segmented Tabs + Search -->
+    <div class="toolbar">
+      <div class="segmented-control">
+        <button class="segment-tab active" data-filter="all" onclick="setCategoryFilter('all')">
+          All <span id="count-all" class="tab-count">0</span>
+        </button>
+        <button class="segment-tab" data-filter="links" onclick="setCategoryFilter('links')">
+          Links <span id="count-links" class="tab-count">0</span>
+        </button>
+        <button class="segment-tab" data-filter="code" onclick="setCategoryFilter('code')">
+          Code <span id="count-code" class="tab-count">0</span>
+        </button>
+        <button class="segment-tab" data-filter="text" onclick="setCategoryFilter('text')">
+          Text <span id="count-text" class="tab-count">0</span>
+        </button>
       </div>
-      <div id="stats-counter" class="stats-count">Loading history...</div>
+
+      <div class="search-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input type="text" id="search-input" placeholder="Search..." autocomplete="off">
+      </div>
     </div>
 
-    <!-- Live Clipboard Entries Feed -->
+    <!-- Clipboard Cards Feed -->
     <section id="entries-feed" class="feed">
-      <!-- Cards rendered dynamically via JS -->
+      <!-- Injected via JavaScript -->
     </section>
 
-    <!-- Empty State View -->
+    <!-- Empty State -->
     <div id="empty-state" class="empty-state" style="display: none;">
-      <svg class="empty-icon" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
-      <div class="empty-title">No clipboard items found</div>
-      <div class="empty-subtitle">Copy text on your Mac or Android phone, or use the send box above to get started.</div>
+      <div class="empty-title">No clipboard history</div>
+      <div class="empty-subtitle">Copies from your devices or this web app will appear automatically.</div>
     </div>
   </main>
 
-  <!-- Toast Notification -->
+  <!-- Bottom Notification Toast -->
   <div id="toast" class="toast">
-    <svg class="toast-icon" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
-    <span id="toast-text">Copied to clipboard!</span>
+    <svg class="toast-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+    <span id="toast-text">Copied</span>
   </div>
 
   <script>
@@ -1074,7 +982,6 @@ class WebServer {
     const sendBtn = document.getElementById('send-btn');
     const badgeEl = document.getElementById('connection-badge');
     const statusTextEl = document.getElementById('connection-status-text');
-    const statsCounter = document.getElementById('stats-counter');
     const serverMeta = document.getElementById('server-meta');
     const toast = document.getElementById('toast');
     const toastText = document.getElementById('toast-text');
@@ -1084,7 +991,7 @@ class WebServer {
       toast.classList.add('show');
       setTimeout(() => {
         toast.classList.remove('show');
-      }, 2000);
+      }, 1800);
     }
 
     function getItemType(content) {
@@ -1103,7 +1010,7 @@ class WebServer {
 
     function setCategoryFilter(filter) {
       currentFilter = filter;
-      document.querySelectorAll('.filter-pill').forEach(btn => {
+      document.querySelectorAll('.segment-tab').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.filter === filter);
       });
       renderEntries();
@@ -1115,10 +1022,10 @@ class WebServer {
         if (text) {
           sendInput.value = text;
           sendInput.focus();
-          showToast('Pasted from clipboard!');
+          showToast('Pasted');
         }
       } catch (err) {
-        showToast('Clipboard read access not granted');
+        showToast('Clipboard access denied');
       }
     }
 
@@ -1134,7 +1041,7 @@ class WebServer {
         if (diffSec < 60) return diffSec + 's ago';
         if (diffMin < 60) return diffMin + 'm ago';
         if (diffHrs < 24) return diffHrs + 'h ago';
-        return dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        return dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
       } catch (_) {
         return 'Recently';
       }
@@ -1143,7 +1050,7 @@ class WebServer {
     function renderEntries() {
       const q = searchInput.value.toLowerCase().trim();
 
-      // Update badge counts across all entries
+      // Counts for tabs
       const allCount = entries.length;
       const linksCount = entries.filter(e => getItemType(e.content) === 'links').length;
       const codeCount = entries.filter(e => getItemType(e.content) === 'code').length;
@@ -1167,8 +1074,6 @@ class WebServer {
         filtered = filtered.filter(e => e.content && e.content.toLowerCase().includes(q));
       }
 
-      statsCounter.textContent = filtered.length + ' item' + (filtered.length === 1 ? '' : 's');
-
       if (filtered.length === 0) {
         feedEl.innerHTML = '';
         emptyStateEl.style.display = 'block';
@@ -1181,31 +1086,42 @@ class WebServer {
         const itemType = getItemType(item.content);
         const isUrl = itemType === 'links';
         const isCode = itemType === 'code';
-        const typeBadge = isUrl ? '🔗 LINK' : (isCode ? '💻 CODE' : '📝 TEXT');
-        const badgeClass = item.device_id.includes('web') ? 'web-client' : (item.device_id.includes('android') ? 'android' : 'macos');
-        const badgeLabel = item.device_id.includes('web') ? 'Web Portal' : (item.device_id.includes('android') ? 'Android' : 'Desktop');
+        const typeLabel = isUrl ? 'Link' : (isCode ? 'Code' : 'Text');
+
+        const deviceId = (item.device_id || '').toLowerCase();
+        const isWeb = deviceId.includes('web');
+        const isAndroid = deviceId.includes('android') || deviceId.includes('mobile');
+        const deviceName = isWeb ? 'Web' : (isAndroid ? 'Android' : 'Mac');
+
+        const deviceSvg = isWeb
+          ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>'
+          : (isAndroid
+              ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>'
+              : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>');
 
         return `
           <article class="entry-card" data-id="\${item.id}" onclick="copyEntryById('\${item.id}')">
             <div class="entry-header">
-              <div class="entry-meta">
-                <span class="device-badge \${badgeClass}">\${badgeLabel}</span>
-                <span class="type-badge type-\${itemType}">\${typeBadge}</span>
-                <span class="timestamp">\${formatTime(item.timestamp || item.created_at)}</span>
+              <div class="entry-origin">
+                <span class="device-tag">
+                  \${deviceSvg}
+                  <span>\${deviceName}</span>
+                </span>
+                <span class="type-tag">\${typeLabel}</span>
+                <span class="entry-time">\${formatTime(item.timestamp || item.created_at)}</span>
               </div>
               <div class="entry-actions">
-                <button class="action-btn copy-btn" title="Copy to clipboard" onclick="copyEntryBtn(event, '\${item.id}')">
-                  <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                <button class="action-btn copy-btn" title="Copy" onclick="copyEntryBtn(event, '\${item.id}')">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
                 </button>
-                <button class="action-btn delete-btn" title="Delete entry" onclick="deleteEntry(event, '\${item.id}')">
-                  <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                <button class="action-btn delete-btn" title="Delete" onclick="deleteEntry(event, '\${item.id}')">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                 </button>
               </div>
             </div>
-            <div class="entry-content \${isUrl || isCode ? 'monospace' : ''}">\${escapeHtml(item.content)}</div>
+            <div class="entry-body \${isCode ? 'is-code' : (isUrl ? 'is-url' : '')}">\${escapeHtml(item.content)}</div>
             <div class="entry-footer">
-              <span>\${item.content ? item.content.length : 0} characters</span>
-              <span class="click-hint">Click card to copy</span>
+              <span>\${item.content ? item.content.length : 0} chars</span>
             </div>
           </article>
         `;
@@ -1237,9 +1153,9 @@ class WebServer {
     async function copyText(text) {
       try {
         await navigator.clipboard.writeText(text);
-        showToast('Copied to clipboard!');
+        showToast('Copied');
       } catch (err) {
-        showToast('Failed to copy: ' + err);
+        showToast('Failed to copy');
       }
     }
 
@@ -1249,9 +1165,9 @@ class WebServer {
         await fetch('/api/entries/' + id, { method: 'DELETE' });
         entries = entries.filter(e => e.id !== id);
         renderEntries();
-        showToast('Entry deleted');
+        showToast('Deleted');
       } catch (e) {
-        showToast('Error deleting entry');
+        showToast('Error deleting');
       }
     }
 
@@ -1269,12 +1185,12 @@ class WebServer {
 
         if (res.ok) {
           sendInput.value = '';
-          showToast('Sent to all connected devices!');
+          showToast('Broadcasted to all devices');
         } else {
-          showToast('Failed to send text');
+          showToast('Failed to send');
         }
       } catch (e) {
-        showToast('Error sending text: ' + e);
+        showToast('Connection error');
       } finally {
         sendBtn.disabled = false;
       }
@@ -1287,8 +1203,8 @@ class WebServer {
       ws = new WebSocket(url);
 
       ws.onopen = () => {
-        badgeEl.className = 'pill-badge connected';
-        statusTextEl.textContent = 'Live Synced';
+        badgeEl.className = 'status-badge connected';
+        statusTextEl.textContent = 'Live';
       };
 
       ws.onmessage = (event) => {
@@ -1297,16 +1213,14 @@ class WebServer {
           if (msg.type === 'init') {
             entries = msg.entries || [];
             if (msg.server_name) {
-              serverMeta.textContent = 'Hosted by ' + msg.server_name + ' • Port ' + window.location.port;
+              serverMeta.textContent = msg.server_name + ' • :' + window.location.port;
             }
             renderEntries();
           } else if (msg.type === 'new_entry') {
             const entry = msg.entry;
-            // Prevent duplicate entries by ID
             if (!entries.some(e => e.id === entry.id)) {
               entries.unshift(entry);
               renderEntries();
-              showToast('New clipboard item received!');
             }
           } else if (msg.type === 'delete_entry') {
             entries = entries.filter(e => e.id !== msg.id);
@@ -1318,8 +1232,8 @@ class WebServer {
       };
 
       ws.onclose = () => {
-        badgeEl.className = 'pill-badge disconnected';
-        statusTextEl.textContent = 'Reconnecting...';
+        badgeEl.className = 'status-badge disconnected';
+        statusTextEl.textContent = 'Disconnected';
         setTimeout(connectWebSocket, reconnectInterval);
       };
 
@@ -1351,10 +1265,9 @@ class WebServer {
       }
     });
 
-    sendBtn.addEventListener('click', sendText);
     searchInput.addEventListener('input', renderEntries);
 
-    // Initial load: fetch immediately via REST and establish live WebSocket sync
+    // Initial load
     loadEntriesFromRest();
     connectWebSocket();
   </script>
