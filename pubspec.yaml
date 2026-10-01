@@ -54,6 +54,7 @@ dependencies:
   shared_preferences: ^2.3.2
   window_manager: ^0.3.9
   http: ^1.6.0
+  qr_flutter: ^4.1.0
 
 dev_dependencies:
   flutter_test:

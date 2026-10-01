@@ -1,15 +1,15 @@
 import 'dart:async';
-import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:http/http.dart' as http;
-import 'core/constants/app_constants.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'core/models/clipboard_entry.dart';
 import 'core/providers/tampal_providers.dart';
 import 'ui/theme/app_theme.dart';
 import 'ui/widgets/clipboard_card.dart';
 import 'ui/widgets/empty_state.dart';
+import 'webrtc/tampal_webrtc.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -50,38 +50,53 @@ enum _FilterCategory { all, links, code, text }
 class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _composerController = TextEditingController();
-  final TextEditingController _serverUrlController = TextEditingController();
+  final TextEditingController _roomCodeController = TextEditingController();
 
+  // ignore: prefer_final_fields — reassigned in setState
   List<ClipboardEntry> _entries = [];
   bool _isSearching = false;
   String _searchQuery = '';
   _FilterCategory _currentFilter = _FilterCategory.all;
-  bool _isLoading = false;
   bool _isSending = false;
-  bool _isConnected = false;
-  String? _errorMessage;
   Timer? _pollingTimer;
 
-  late String _serverUrl;
+  // WebRTC P2P
+  late TampalWebRTC _rtc;
+  WebRtcState _rtcState = WebRtcState.idle;
+  String _roomCode = '';
+  StreamSubscription<WebRtcState>? _rtcStateSub;
+  StreamSubscription<Map<String, dynamic>>? _rtcMessageSub;
+
+  bool get _isConnected => _rtcState == WebRtcState.connected;
 
   @override
   void initState() {
     super.initState();
 
-    // Default to the host from the browser address bar with port 42881,
-    // or localhost if running standalone.
-    final host = (Uri.base.host.isNotEmpty && Uri.base.host != '0.0.0.0')
-        ? Uri.base.host
-        : 'localhost';
-    _serverUrl = 'http://$host:${AppConstants.defaultWebPort}';
-    _serverUrlController.text = _serverUrl;
+    // Determine signaling base URL (Vercel origin or localhost for dev)
+    final uri = Uri.base;
+    final signalBase = (uri.scheme == 'https' || uri.host.endsWith('.vercel.app'))
+        ? uri.origin
+        : 'http://localhost:3000'; // local dev fallback
 
-    _fetchEntries();
+    _rtc = TampalWebRTC(signalBase: signalBase);
 
-    // Auto-poll local Wi-Fi hub every 2.5 seconds
-    _pollingTimer = Timer.periodic(const Duration(milliseconds: 2500), (_) {
-      if (!_isLoading && !_isSending) {
-        _fetchEntries(silent: true);
+    _rtcStateSub = _rtc.stateStream.listen((state) {
+      if (mounted) setState(() => _rtcState = state);
+    });
+
+    _rtcMessageSub = _rtc.messageStream.listen((msg) {
+      if (msg['type'] == 'entry') {
+        try {
+          final entry = ClipboardEntry.fromSyncJson(msg['data'] as Map<String, dynamic>);
+          if (mounted) {
+            setState(() {
+              // Prepend and deduplicate by id
+              _entries.removeWhere((e) => e.id == entry.id);
+              _entries.insert(0, entry);
+            });
+          }
+        } catch (_) {}
       }
     });
   }
@@ -89,128 +104,78 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
   @override
   void dispose() {
     _pollingTimer?.cancel();
+    _rtcStateSub?.cancel();
+    _rtcMessageSub?.cancel();
+    _rtc.dispose();
     _searchController.dispose();
     _composerController.dispose();
-    _serverUrlController.dispose();
+    _roomCodeController.dispose();
     super.dispose();
   }
 
-  Future<void> _fetchEntries({bool silent = false}) async {
-    if (!silent) {
-      setState(() => _isLoading = true);
-    }
-
-    try {
-      final queryParam = _searchQuery.isNotEmpty ? '?q=${Uri.encodeComponent(_searchQuery)}' : '';
-      final uri = Uri.parse('$_serverUrl/api/entries$queryParam');
-      final res = await http.get(uri).timeout(const Duration(seconds: 3));
-
-      if (res.statusCode == 200) {
-        final List<dynamic> jsonList = jsonDecode(res.body) as List<dynamic>;
-        final loaded = jsonList
-            .map((e) => ClipboardEntry.fromSyncJson(e as Map<String, dynamic>))
-            .toList();
-
-        if (mounted) {
-          setState(() {
-            _entries = loaded;
-            _isConnected = true;
-            _errorMessage = null;
-          });
-        }
-      } else {
-        if (mounted) {
-          setState(() {
-            _isConnected = false;
-            _errorMessage = 'Desktop Hub status ${res.statusCode}';
-          });
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isConnected = false;
-          _errorMessage = 'Local Desktop Hub offline (Ensure same Wi-Fi)';
-        });
-      }
-    } finally {
-      if (!silent && mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
+  /// Generate a random 4-digit pairing room code
+  String _generateRoomCode() {
+    final rng = Random.secure();
+    return (1000 + rng.nextInt(9000)).toString();
   }
 
-  Future<void> _sendText() async {
+  void _sendText() {
     final text = _composerController.text.trim();
     if (text.isEmpty) return;
-
+    if (!_isConnected) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppTheme.errorColor,
+          content: Text('Not connected to a peer. Tap \'P2P Connect\' to pair.'),
+        ),
+      );
+      return;
+    }
     setState(() => _isSending = true);
-
     try {
-      final uri = Uri.parse('$_serverUrl/api/send');
-      final res = await http.post(
-        uri,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'content': text}),
-      ).timeout(const Duration(seconds: 4));
-
-      if (res.statusCode == 200) {
+      final entry = ClipboardEntry.create(deviceId: 'web-self', content: text);
+      final sent = _rtc.sendEntry(entry.toSyncJson());
+      if (sent) {
         _composerController.clear();
-        await Clipboard.setData(ClipboardData(text: text));
-        if (!mounted) return;
-
-        await _fetchEntries(silent: true);
-
-        if (mounted) {
-          final isDark = Theme.of(context).brightness == Brightness.dark;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              backgroundColor: isDark ? AppTheme.surfaceDark : Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: const BorderSide(color: AppTheme.successColor),
-              ),
-              content: Row(
-                children: [
-                  const Icon(Icons.check_circle_rounded, color: AppTheme.successColor, size: 20),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Pushed to Wi-Fi devices: "${text.length > 30 ? '${text.substring(0, 30)}...' : text}"',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? AppTheme.textPrimary : AppTheme.lightTextPrimary,
-                      ),
+        setState(() {
+          _entries.insert(0, entry);
+        });
+        Clipboard.setData(ClipboardData(text: text));
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: isDark ? AppTheme.surfaceDark : Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: const BorderSide(color: AppTheme.successColor),
+            ),
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle_rounded, color: AppTheme.successColor, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Sent P2P: "${text.length > 30 ? '${text.substring(0, 30)}...' : text}"',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? AppTheme.textPrimary : AppTheme.lightTextPrimary,
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          );
-        }
+          ),
+        );
       } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              backgroundColor: AppTheme.errorColor,
-              content: Text('Failed to push text (HTTP ${res.statusCode})'),
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             backgroundColor: AppTheme.errorColor,
-            content: Text('Cannot reach Desktop Hub. Ensure both devices are on the same Wi-Fi.'),
+            content: Text('Could not send — DataChannel not open yet.'),
           ),
         );
       }
     } finally {
-      if (mounted) {
-        setState(() => _isSending = false);
-      }
+      if (mounted) setState(() => _isSending = false);
     }
   }
 
@@ -224,106 +189,211 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
     } catch (_) {}
   }
 
-  Future<void> _deleteEntry(String id) async {
-    try {
-      final uri = Uri.parse('$_serverUrl/api/entries/$id');
-      await http.delete(uri).timeout(const Duration(seconds: 3));
-      setState(() {
-        _entries.removeWhere((e) => e.id == id);
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Entry removed across Wi-Fi devices')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Delete failed: $e')),
-        );
-      }
-    }
+  void _deleteEntry(String id) {
+    setState(() => _entries.removeWhere((e) => e.id == id));
+    // Notify peer to also remove (best-effort)
+    _rtc.sendEntry({'type': 'delete', 'id': id});
   }
 
-  void _showServerConfigDialog() {
-    _serverUrlController.text = _serverUrl;
+  void _showP2PConnectDialog() {
+    // Generate a new room code each time the dialog opens
+    _roomCode = _generateRoomCode();
+    _roomCodeController.clear();
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final joinCodeController = TextEditingController();
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: isDark ? AppTheme.darkCard : AppTheme.lightCard,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: isDark ? AppTheme.glassBorder : AppTheme.lightBorder),
-        ),
-        title: Row(
-          children: [
-            const Icon(Icons.wifi_rounded, color: AppTheme.accentColor),
-            const SizedBox(width: 10),
-            Text(
-              'Local Wi-Fi Desktop Hub',
-              style: TextStyle(
-                color: isDark ? AppTheme.textPrimary : AppTheme.lightTextPrimary,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) {
+          return AlertDialog(
+            backgroundColor: isDark ? AppTheme.darkCard : AppTheme.lightCard,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: isDark ? AppTheme.glassBorder : AppTheme.lightBorder),
+            ),
+            title: Row(
+              children: [
+                const Icon(Icons.wifi_tethering_rounded, color: AppTheme.accentColor),
+                const SizedBox(width: 10),
+                Text(
+                  'P2P Browser Connect',
+                  style: TextStyle(
+                    color: isDark ? AppTheme.textPrimary : AppTheme.lightTextPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: 340,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // HOST side
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF0F1016) : const Color(0xFFF9FAFB),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: isDark ? AppTheme.glassBorder : AppTheme.lightBorder),
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          'On this device — Share this code',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? AppTheme.textSecondary : AppTheme.lightTextSecondary,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        // QR code
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: QrImageView(
+                            data: 'tampal://pair/$_roomCode',
+                            version: QrVersions.auto,
+                            size: 140,
+                            backgroundColor: Colors.white,
+                            padding: const EdgeInsets.all(8),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: _roomCode.split('').map((digit) => Container(
+                            width: 36,
+                            height: 42,
+                            margin: const EdgeInsets.symmetric(horizontal: 3),
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF1E222E) : Colors.white,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: AppTheme.accentColor.withValues(alpha: 0.5)),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              digit,
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w700,
+                                fontFamily: 'monospace',
+                                color: AppTheme.accentColor,
+                              ),
+                            ),
+                          )).toList(),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Waiting for peer to join...',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isDark ? AppTheme.textMuted : AppTheme.lightTextMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Divider(color: isDark ? AppTheme.glassBorder : AppTheme.lightBorder),
+                  const SizedBox(height: 12),
+                  // JOINER side
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'On the other device — Enter their code',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? AppTheme.textSecondary : AppTheme.lightTextSecondary,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: joinCodeController,
+                              maxLength: 4,
+                              keyboardType: TextInputType.number,
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                fontFamily: 'monospace',
+                                letterSpacing: 6,
+                                color: isDark ? AppTheme.textPrimary : AppTheme.lightTextPrimary,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: '0000',
+                                hintStyle: TextStyle(
+                                  color: isDark ? AppTheme.textMuted : AppTheme.lightTextMuted,
+                                  letterSpacing: 6,
+                                ),
+                                counterText: '',
+                                filled: true,
+                                fillColor: isDark ? const Color(0xFF0F1016) : const Color(0xFFF3F4F6),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: BorderSide(color: isDark ? AppTheme.glassBorder : AppTheme.lightBorder),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            onPressed: () async {
+                              final code = joinCodeController.text.trim();
+                              if (code.length == 4) {
+                                Navigator.pop(ctx);
+                                await _rtc.joinWithAnswer(code);
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.accentColor,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            ),
+                            child: const Text('Join', style: TextStyle(fontWeight: FontWeight.w600)),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Enter the address of the Tampal Desktop server on your local Wi-Fi network:',
-              style: TextStyle(
-                color: isDark ? const Color(0xFF94A3B8) : AppTheme.lightTextSecondary,
-                fontSize: 13,
-                height: 1.4,
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(color: isDark ? AppTheme.textSecondary : AppTheme.lightTextSecondary),
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _serverUrlController,
-              decoration: const InputDecoration(
-                labelText: 'Desktop Hub Address',
-                hintText: 'http://192.168.1.X:42881 or http://localhost:42881',
-                prefixIcon: Icon(Icons.link_rounded, color: Color(0xFF94A3B8)),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.wifi_tethering_rounded, size: 15),
+                label: const Text('Host Session'),
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  await _rtc.createOffer(_roomCode);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isDark ? Colors.white : const Color(0xFF111827),
+                  foregroundColor: isDark ? const Color(0xFF0C0D11) : Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'To find your address, open Tampal Desktop on your Mac or PC and check the "Pair & Connect" screen.',
-              style: TextStyle(
-                color: isDark ? const Color(0xFF64748B) : AppTheme.lightTextMuted,
-                fontSize: 11,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: isDark ? const Color(0xFF94A3B8) : AppTheme.lightTextSecondary),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final newUrl = _serverUrlController.text.trim();
-              if (newUrl.isNotEmpty) {
-                Navigator.pop(ctx);
-                setState(() {
-                  _serverUrl = newUrl.endsWith('/') ? newUrl.substring(0, newUrl.length - 1) : newUrl;
-                });
-                _fetchEntries();
-              }
-            },
-            child: const Text('Connect & Sync'),
-          ),
-        ],
+            ],
+          );
+        },
       ),
     );
   }
@@ -399,19 +469,15 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
               // Clipboard Feed
               Expanded(
                 child: filtered.isEmpty
-                    ? (_isLoading
-                        ? const Center(
-                            child: CircularProgressIndicator(color: AppTheme.primaryColor),
-                          )
-                        : EmptyStateView(
+                    ? EmptyStateView(
                             title: _searchQuery.isNotEmpty ? 'No matching entries' : 'No clipboard history',
                             message: _isConnected
-                                ? 'Copies from any device on your Wi-Fi network will sync automatically.'
-                                : 'Ensure Tampal desktop app is running on your Mac/PC on the same Wi-Fi.',
+                                ? 'Type in the composer above and hit Broadcast to send P2P.'
+                                : 'Tap the Wi-Fi icon in the header to pair with another browser.',
                             icon: Icons.content_paste_off_rounded,
-                            actionLabel: _isConnected ? null : 'Configure Hub',
-                            onAction: _isConnected ? null : _showServerConfigDialog,
-                          ))
+                            actionLabel: _isConnected ? null : 'Connect P2P',
+                            onAction: _isConnected ? null : _showP2PConnectDialog,
+                    )
                     : ListView.builder(
                         padding: const EdgeInsets.only(bottom: 24),
                         itemCount: filtered.length,
@@ -499,29 +565,31 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
           ),
           const SizedBox(width: 4),
           IconButton(
-            icon: _isLoading
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor),
-                  )
-                : Icon(
+            icon: Icon(
                     Icons.refresh_rounded,
                     color: isDark ? AppTheme.textSecondary : AppTheme.lightTextSecondary,
                     size: 19,
                   ),
-            tooltip: 'Sync now',
-            onPressed: () => _fetchEntries(),
+            tooltip: 'Refresh',
+            onPressed: () => setState(() {}),
           ),
           const SizedBox(width: 4),
           IconButton(
-            icon: Icon(
-              Icons.tune_rounded,
-              color: isDark ? AppTheme.textSecondary : AppTheme.lightTextSecondary,
-              size: 19,
+            icon: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              child: Icon(
+                _isConnected ? Icons.wifi_tethering_rounded : Icons.wifi_tethering_off_rounded,
+                key: ValueKey(_isConnected),
+                color: _isConnected
+                    ? AppTheme.successColor
+                    : (isDark ? AppTheme.textSecondary : AppTheme.lightTextSecondary),
+                size: 19,
+              ),
             ),
-            tooltip: 'Desktop Hub settings',
-            onPressed: _showServerConfigDialog,
+            tooltip: _isConnected ? 'P2P Connected — tap to disconnect' : 'Connect P2P',
+            onPressed: _isConnected
+                ? () { _rtc.close(); setState(() {}); }
+                : _showP2PConnectDialog,
           ),
         ],
       ),
@@ -529,6 +597,30 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
   }
 
   Widget _buildConnectionStrip(bool isDark) {
+    // Map WebRTC state to color + label
+    final Color dotColor;
+    final String statusLabel;
+    switch (_rtcState) {
+      case WebRtcState.connected:
+        dotColor = AppTheme.successColor;
+        statusLabel = 'P2P connected • ${_entries.length} items';
+      case WebRtcState.waiting:
+        dotColor = const Color(0xFFF59E0B);
+        statusLabel = 'Waiting for peer to join…';
+      case WebRtcState.connecting:
+        dotColor = const Color(0xFFF59E0B);
+        statusLabel = 'Establishing secure P2P link…';
+      case WebRtcState.error:
+        dotColor = AppTheme.errorColor;
+        statusLabel = 'Connection failed. Try pairing again.';
+      case WebRtcState.disconnected:
+        dotColor = AppTheme.errorColor;
+        statusLabel = 'Peer disconnected.';
+      case WebRtcState.idle:
+        dotColor = isDark ? const Color(0xFF3B4258) : const Color(0xFFD1D5DB);
+        statusLabel = 'No peer — tap ‘P2P Connect’ to pair browsers';
+    }
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -539,25 +631,24 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
       ),
       child: Row(
         children: [
-          Container(
+          // Pulsing dot for transitional states
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
             width: 6,
             height: 6,
-            decoration: BoxDecoration(
-              color: _isConnected ? AppTheme.successColor : AppTheme.errorColor,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
           ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              _isConnected
-                  ? 'Connected to Wi-Fi Hub ($_serverUrl) • ${_entries.length} items synced'
-                  : (_errorMessage ?? 'Connecting to $_serverUrl...'),
+              statusLabel,
               style: TextStyle(
                 fontSize: 12,
                 color: _isConnected
                     ? (isDark ? AppTheme.textPrimary : AppTheme.lightTextPrimary)
-                    : const Color(0xFFF87171),
+                    : (_rtcState == WebRtcState.error || _rtcState == WebRtcState.disconnected
+                        ? AppTheme.errorColor
+                        : (isDark ? AppTheme.textSecondary : AppTheme.lightTextSecondary)),
                 fontWeight: FontWeight.w400,
               ),
               overflow: TextOverflow.ellipsis,
@@ -569,12 +660,14 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
-            onPressed: _showServerConfigDialog,
+            onPressed: _isConnected
+                ? () { _rtc.close(); setState(() {}); }
+                : _showP2PConnectDialog,
             child: Text(
-              'Configure Hub',
+              _isConnected ? 'Disconnect' : 'Connect',
               style: TextStyle(
                 fontSize: 12,
-                color: isDark ? AppTheme.textSecondary : AppTheme.lightTextSecondary,
+                color: _isConnected ? AppTheme.errorColor : (isDark ? AppTheme.textSecondary : AppTheme.lightTextSecondary),
               ),
             ),
           ),
@@ -605,7 +698,9 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
               color: isDark ? AppTheme.textPrimary : AppTheme.lightTextPrimary,
             ),
             decoration: InputDecoration(
-              hintText: 'Type or paste to broadcast across your local Wi-Fi devices...',
+              hintText: _isConnected
+                  ? 'Type or paste to send P2P to your connected browser…'
+                  : 'Connect a peer first (tap the Wi-Fi icon above)…',
               hintStyle: TextStyle(
                 color: isDark ? AppTheme.textMuted : AppTheme.lightTextMuted,
                 fontSize: 13,
