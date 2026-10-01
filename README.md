@@ -1,4 +1,4 @@
-# ClipSync
+# Tampal
 
 A modern, cross-platform Flutter application that syncs clipboard content two-way between mobile devices (Android/iOS) and desktop workstations (macOS/Windows/Linux) over the local Wi-Fi network, retaining clipboard history on both ends with SQLite storage.
 
@@ -6,13 +6,13 @@ A modern, cross-platform Flutter application that syncs clipboard content two-wa
 
 ## Architecture Overview
 
-ClipSync is built as a single unified Flutter repository with a shared business core and two distinct entry points:
+Tampal is built as a single unified Flutter repository with a shared business core and three distinct entry points (Mobile, Desktop, Web):
 
 ```
 lib/
 ├── core/                                # Shared core logic (platform agnostic)
 │   ├── constants/
-│   │   └── app_constants.dart           # Service type (_clipsync._tcp), ports, constants
+│   │   └── app_constants.dart           # Service type (_tampal._tcp), ports, constants
 │   ├── models/
 │   │   ├── clipboard_entry.dart         # Entry model, SQLite mapping & sync JSON
 │   │   ├── sync_message.dart            # Handshake, syncRequest, syncResponse, pushEntry
@@ -23,11 +23,12 @@ lib/
 │   │   ├── discovery_service.dart       # mDNS broadcast & discovery via Bonsoir
 │   │   ├── socket_framing.dart          # Line-delimited stream framing for TCP
 │   │   ├── sync_connection.dart        # Socket session with keepalive pings
-│   │   └── sync_service.dart            # Handshake, bidirectional sync, auto-reconnect
+│   │   ├── sync_service.dart            # Handshake, bidirectional sync, auto-reconnect
+│   │   └── web_server.dart              # Local web portal for browser sync
 │   ├── clipboard/
 │   │   └── clipboard_watcher.dart       # Real-time polling, app resume hook, anti-echo
 │   ├── providers/
-│   │   └── clipsync_providers.dart      # Riverpod providers for app state
+│   │   └── tampal_providers.dart        # Riverpod providers for app state
 │   └── services/
 │       └── settings_service.dart        # Device identity, retention limits & preferences
 ├── ui/                                  # Shared UI components
@@ -40,9 +41,10 @@ lib/
 │   │   ├── connection_badge.dart        # Status badge with live peer indicator
 │   │   └── empty_state.dart             # Visual placeholder for empty history/search
 │   └── theme/
-│       └── app_theme.dart               # Modern dark theme with indigo/cyan palette
+│       └── app_theme.dart               # Modern theme with dark/light mode support
 ├── main_mobile.dart                     # Mobile entry point (Android / iOS)
 ├── main_desktop.dart                    # Desktop entry point (macOS / Windows / Linux)
+├── main_web.dart                        # Web portal client entry point
 └── main.dart                            # Auto-routing fallback entry point
 ```
 
@@ -52,33 +54,39 @@ lib/
 
 ### Desktop Build (macOS / Windows / Linux)
 ```bash
-fvm flutter run -t lib/main_desktop.dart
+flutter run -t lib/main_desktop.dart
 # or specifying target device:
-fvm flutter run -d macos -t lib/main_desktop.dart
-fvm flutter run -d windows -t lib/main_desktop.dart
-fvm flutter run -d linux -t lib/main_desktop.dart
+flutter run -d macos -t lib/main_desktop.dart
+flutter run -d windows -t lib/main_desktop.dart
+flutter run -d linux -t lib/main_desktop.dart
 ```
 
 ### Mobile Build (Android / iOS)
 ```bash
-fvm flutter run -t lib/main_mobile.dart
+flutter run -t lib/main_mobile.dart
 # or specifying target device:
-fvm flutter run -d android -t lib/main_mobile.dart
-fvm flutter run -d ios -t lib/main_mobile.dart
+flutter run -d android -t lib/main_mobile.dart
+flutter run -d ios -t lib/main_mobile.dart
+```
+
+### Web Build
+```bash
+flutter run -d chrome -t lib/main_web.dart
 ```
 
 ### VS Code
 Launch configurations are set up in `.vscode/launch.json`:
-- **ClipSync Desktop**
-- **ClipSync Mobile**
-- **ClipSync (Auto)**
+- **Tampal Mobile**
+- **Tampal Desktop**
+- **Tampal Web**
+- **Tampal (Auto)**
 
 ---
 
 ## Core Features & Protocol
 
 ### 1. Device Discovery (mDNS)
-- Uses Zeroconf / mDNS advertising service type `_clipsync._tcp`.
+- Uses Zeroconf / mDNS advertising service type `_tampal._tcp`.
 - Desktop acts as the default listening server on port `42880`.
 - Mobile devices automatically discover desktop peers on the local Wi-Fi and display them in the Pair & Connect view.
 - Manual direct connection (`IP:Port`) is also available for complex router configurations.
@@ -113,7 +121,7 @@ Each peer compares the latest timestamp with its local database and automaticall
 - **Mobile Lifecycle Hook**: On iOS and Android, resuming the app triggers an immediate clipboard inspection. A prominent manual "Sync Now" button is also provided.
 
 ### 4. SQLite Schema & Retention
-Stored in `clipsync.db`:
+Stored in `tampal.db`:
 ```sql
 CREATE TABLE clipboard_entries (
   id TEXT PRIMARY KEY,
@@ -132,10 +140,10 @@ CREATE INDEX idx_created_at ON clipboard_entries(created_at);
 
 Run the test suite:
 ```bash
-fvm flutter test
+flutter test
 ```
 
 Analyze the codebase:
 ```bash
-fvm flutter analyze
+flutter analyze
 ```

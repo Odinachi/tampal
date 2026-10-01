@@ -86,7 +86,7 @@ class WebServer {
       );
 
       _isRunning = true;
-      debugPrint('[WebServer] ClipSync Web Portal running at http://0.0.0.0:$listenPort');
+      debugPrint('[WebServer] Tampal Web Portal running at http://0.0.0.0:$listenPort');
 
       // Listen for incoming HTTP & WebSocket requests
       _server!.listen(_handleRequest, onError: (e) {
@@ -349,8 +349,8 @@ class WebServer {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ClipSync — Local Clipboard Sync</title>
-  <meta name="description" content="Local Wi-Fi clipboard synchronization dashboard for ClipSync.">
+  <title>Tampal — Local Clipboard Sync</title>
+  <meta name="description" content="Local Wi-Fi clipboard synchronization dashboard for Tampal.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -371,7 +371,35 @@ class WebServer {
       --accent-hover: #2563EB;
       --success: #10B981;
       --error: #EF4444;
+      --btn-primary-bg: #FFFFFF;
+      --btn-primary-text: #0C0D11;
+      --header-bg: rgba(12, 13, 17, 0.92);
+      --code-bg: #090A0D;
+      --code-text: #E2E8F0;
       --radius: 8px;
+    }
+
+    [data-theme="light"] {
+      --bg: #F8F9FA;
+      --surface: #FFFFFF;
+      --surface-hover: #F1F3F5;
+      --surface-active: #E9ECEF;
+      --surface-subtle: #F3F4F6;
+      --border: #E5E7EB;
+      --border-hover: #D1D5DB;
+      --border-focus: #3B82F6;
+      --text-primary: #111827;
+      --text-secondary: #4B5563;
+      --text-tertiary: #9CA3AF;
+      --accent: #2563EB;
+      --accent-hover: #1D4ED8;
+      --success: #059669;
+      --error: #DC2626;
+      --btn-primary-bg: #111827;
+      --btn-primary-text: #FFFFFF;
+      --header-bg: rgba(248, 249, 250, 0.92);
+      --code-bg: #F1F3F5;
+      --code-text: #1E293B;
     }
 
     * {
@@ -389,6 +417,7 @@ class WebServer {
       flex-direction: column;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
+      transition: background-color 0.15s, color 0.15s;
     }
 
     /* Top Navigation Header */
@@ -396,7 +425,7 @@ class WebServer {
       position: sticky;
       top: 0;
       z-index: 40;
-      background: rgba(12, 13, 17, 0.92);
+      background: var(--header-bg);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
       border-bottom: 1px solid var(--border);
@@ -446,6 +475,37 @@ class WebServer {
       font-size: 0.75rem;
       color: var(--text-tertiary);
       font-weight: 400;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .theme-toggle-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s, background-color 0.15s;
+    }
+
+    .theme-toggle-btn:hover {
+      color: var(--text-primary);
+      border-color: var(--border-hover);
+      background: var(--surface-hover);
+    }
+
+    .theme-toggle-btn svg {
+      width: 14px;
+      height: 14px;
     }
 
     .status-badge {
@@ -577,8 +637,8 @@ class WebServer {
     }
 
     .btn-primary {
-      background: #FFFFFF;
-      color: #0C0D11;
+      background: var(--btn-primary-bg);
+      color: var(--btn-primary-text);
       border: none;
       border-radius: 6px;
       padding: 5px 14px;
@@ -806,11 +866,11 @@ class WebServer {
     .entry-body.is-code {
       font-family: 'JetBrains Mono', monospace;
       font-size: 0.8rem;
-      background: #090A0D;
+      background: var(--code-bg);
       border: 1px solid var(--border);
       border-radius: 6px;
       padding: 8px 10px;
-      color: #E2E8F0;
+      color: var(--code-text);
     }
 
     .entry-body.is-url {
@@ -853,7 +913,7 @@ class WebServer {
       bottom: 24px;
       left: 50%;
       transform: translateX(-50%) translateY(20px);
-      background: #1C1E26;
+      background: var(--surface);
       border: 1px solid var(--border-hover);
       color: var(--text-primary);
       padding: 8px 14px;
@@ -863,7 +923,7 @@ class WebServer {
       display: flex;
       align-items: center;
       gap: 8px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
       opacity: 0;
       pointer-events: none;
       transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s;
@@ -888,18 +948,24 @@ class WebServer {
   <header>
     <div class="brand">
       <div class="brand-mark">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
-          <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 21V4a2 2 0 0 1 2-2h6a5 5 0 0 1 5 5c0 2.76-2.24 5-5 5H5"></path>
+          <path d="M13 14l4 4-4 4"></path>
+          <path d="M17 18H9"></path>
         </svg>
       </div>
       <div class="brand-meta">
-        <span class="brand-name">ClipSync</span>
+        <span class="brand-name">Tampal</span>
         <span id="server-meta" class="brand-sub">Local Network</span>
       </div>
     </div>
 
     <div class="header-right">
+      <button id="theme-toggle-btn" class="theme-toggle-btn" title="Toggle theme (Light / Dark)" onclick="toggleTheme()">
+        <svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+      </button>
       <div id="connection-badge" class="status-badge disconnected">
         <span class="status-dot"></span>
         <span id="connection-status-text">Connecting</span>
@@ -985,6 +1051,31 @@ class WebServer {
     const serverMeta = document.getElementById('server-meta');
     const toast = document.getElementById('toast');
     const toastText = document.getElementById('toast-text');
+
+    // Theme Management
+    const themeIcon = document.getElementById('theme-icon');
+    const sunSvg = '<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>';
+    const moonSvg = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>';
+
+    function applyTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+      try {
+        localStorage.setItem('tampal_theme', theme);
+      } catch (_) {}
+      if (themeIcon) {
+        themeIcon.innerHTML = theme === 'light' ? sunSvg : moonSvg;
+      }
+    }
+
+    function toggleTheme() {
+      const active = document.documentElement.getAttribute('data-theme') || 'dark';
+      const newTheme = active === 'dark' ? 'light' : 'dark';
+      applyTheme(newTheme);
+      showToast(newTheme === 'light' ? 'Light mode' : 'Dark mode');
+    }
+
+    const savedTheme = localStorage.getItem('tampal_theme') || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+    applyTheme(savedTheme);
 
     function showToast(message) {
       toastText.textContent = message;
@@ -1227,7 +1318,7 @@ class WebServer {
             renderEntries();
           }
         } catch (e) {
-          console.error('[ClipSync Web] Error parsing message:', e);
+          console.error('[Tampal Web] Error parsing message:', e);
         }
       };
 

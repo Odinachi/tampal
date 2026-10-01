@@ -32,7 +32,7 @@ class DiscoveryService {
   bool get isBroadcasting => _isBroadcasting;
   bool get isDiscovering => _isDiscovering;
 
-  /// Start mDNS broadcast advertising this ClipSync service on the network
+  /// Start mDNS broadcast advertising this Tampal service on the network
   Future<void> startBroadcasting() async {
     if (_isBroadcasting) return;
 
@@ -71,7 +71,7 @@ class DiscoveryService {
     }
   }
 
-  /// Start discovering other ClipSync devices on the local Wi-Fi network
+  /// Start discovering other Tampal devices on the local Wi-Fi network
   Future<void> startDiscovery() async {
     if (_isDiscovering) return;
 

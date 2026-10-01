@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:clipsync/core/constants/app_constants.dart';
-import 'package:clipsync/core/models/clipboard_entry.dart';
-import 'package:clipsync/core/models/device_info.dart';
-import 'package:clipsync/core/models/sync_message.dart';
+import 'package:tampal/core/constants/app_constants.dart';
+import 'package:tampal/core/models/clipboard_entry.dart';
+import 'package:tampal/core/models/device_info.dart';
+import 'package:tampal/core/models/sync_message.dart';
 
 void main() {
   group('ClipboardEntry Model Tests', () {
@@ -13,7 +13,7 @@ void main() {
         id: 'test-uuid-1234',
         deviceId: 'device-abc',
         contentType: 'text',
-        content: 'Hello World! ClipSync test.',
+        content: 'Hello World! Tampal test.',
         createdAt: now,
       );
 
@@ -21,7 +21,7 @@ void main() {
       expect(map['id'], 'test-uuid-1234');
       expect(map['device_id'], 'device-abc');
       expect(map['content_type'], 'text');
-      expect(map['content'], 'Hello World! ClipSync test.');
+      expect(map['content'], 'Hello World! Tampal test.');
       expect(map['created_at'], now.toIso8601String());
 
       final restored = ClipboardEntry.fromMap(map);
@@ -152,7 +152,7 @@ void main() {
     test('Default ports and constants are valid', () {
       expect(AppConstants.defaultPort, 42880);
       expect(AppConstants.defaultWebPort, 42881);
-      expect(AppConstants.serviceType, '_clipsync._tcp');
+      expect(AppConstants.serviceType, '_tampal._tcp');
     });
   });
 }

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/providers/clipsync_providers.dart';
+import '../../core/providers/tampal_providers.dart';
 import '../theme/app_theme.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -206,7 +206,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
                     ),
                     value: _autoSync,
-                    activeThumbColor: AppTheme.accentColor,
+                    activeColor: AppTheme.accentColor,
                     contentPadding: EdgeInsets.zero,
                     onChanged: (val) => setState(() => _autoSync = val),
                   ),
@@ -241,7 +241,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
                     ),
                     value: _webEnabled,
-                    activeThumbColor: AppTheme.accentColor,
+                    activeColor: AppTheme.accentColor,
                     contentPadding: EdgeInsets.zero,
                     onChanged: (val) => setState(() => _webEnabled = val),
                   ),

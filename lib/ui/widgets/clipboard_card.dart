@@ -101,6 +101,19 @@ class _ClipboardCardState extends State<ClipboardCard> {
             ? Icons.language_rounded
             : (isAndroid ? Icons.phone_android_rounded : Icons.laptop_mac_rounded));
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = isDark
+        ? (_isHovered ? AppTheme.darkCardHover : AppTheme.darkCard)
+        : (_isHovered ? AppTheme.lightCardHover : AppTheme.lightCard);
+    final borderColor = isDark
+        ? (_isHovered ? AppTheme.glassBorderHover : AppTheme.glassBorder)
+        : (_isHovered ? AppTheme.lightBorderHover : AppTheme.lightBorder);
+    final textPrimary = isDark ? AppTheme.textPrimary : AppTheme.lightTextPrimary;
+    final textSecondary = isDark ? AppTheme.textSecondary : AppTheme.lightTextSecondary;
+    final textMuted = isDark ? AppTheme.textMuted : AppTheme.lightTextMuted;
+    final tagBg = isDark ? const Color(0xFF0F1016) : const Color(0xFFF3F4F6);
+    final codeBg = isDark ? const Color(0xFF090A0D) : const Color(0xFFF3F4F6);
+
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
@@ -108,15 +121,15 @@ class _ClipboardCardState extends State<ClipboardCard> {
         duration: const Duration(milliseconds: 150),
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         decoration: BoxDecoration(
-          color: _isHovered ? AppTheme.darkCardHover : AppTheme.darkCard,
+          color: cardBg,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: _isHovered ? AppTheme.glassBorderHover : AppTheme.glassBorder,
+            color: borderColor,
             width: 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.18),
+              color: isDark ? Colors.black.withValues(alpha: 0.18) : Colors.black.withValues(alpha: 0.04),
               blurRadius: 4,
               offset: const Offset(0, 1),
             ),
@@ -137,9 +150,9 @@ class _ClipboardCardState extends State<ClipboardCard> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0F1016),
+                        color: tagBg,
                         borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: AppTheme.glassBorder),
+                        border: Border.all(color: borderColor),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -147,15 +160,15 @@ class _ClipboardCardState extends State<ClipboardCard> {
                           Icon(
                             deviceIcon,
                             size: 12,
-                            color: const Color(0xFF8E93A4),
+                            color: textSecondary,
                           ),
                           const SizedBox(width: 4),
                           Text(
                             deviceLabel,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w500,
-                              color: Color(0xFF8E93A4),
+                              color: textSecondary,
                             ),
                           ),
                         ],
@@ -167,16 +180,16 @@ class _ClipboardCardState extends State<ClipboardCard> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0F1016),
+                        color: tagBg,
                         borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: AppTheme.glassBorder),
+                        border: Border.all(color: borderColor),
                       ),
                       child: Text(
                         contentType.name.toUpperCase(),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w500,
-                          color: Color(0xFF8E93A4),
+                          color: textSecondary,
                           letterSpacing: 0.2,
                         ),
                       ),
@@ -186,9 +199,9 @@ class _ClipboardCardState extends State<ClipboardCard> {
                     // Timestamp
                     Text(
                       _formatTimestamp(widget.entry.createdAt),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: Color(0xFF64748B),
+                        color: textMuted,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -198,7 +211,7 @@ class _ClipboardCardState extends State<ClipboardCard> {
                     // Character count
                     Text(
                       '${widget.entry.content.length} chars',
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF525768), fontFamily: 'monospace'),
+                      style: TextStyle(fontSize: 11, color: textMuted, fontFamily: 'monospace'),
                     ),
                     const SizedBox(width: 8),
 
@@ -208,7 +221,7 @@ class _ClipboardCardState extends State<ClipboardCard> {
                         duration: const Duration(milliseconds: 150),
                         child: _copied
                             ? const Icon(Icons.check_rounded, key: ValueKey('copied'), size: 16, color: AppTheme.successColor)
-                            : const Icon(Icons.copy_rounded, key: ValueKey('copy'), size: 15, color: Color(0xFF64748B)),
+                            : Icon(Icons.copy_rounded, key: const ValueKey('copy'), size: 15, color: textMuted),
                       ),
                       splashRadius: 16,
                       padding: EdgeInsets.zero,
@@ -221,7 +234,7 @@ class _ClipboardCardState extends State<ClipboardCard> {
                     // Delete button
                     IconButton(
                       icon: const Icon(Icons.delete_outline_rounded, size: 16),
-                      color: const Color(0xFF64748B),
+                      color: textMuted,
                       splashRadius: 16,
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
@@ -240,9 +253,9 @@ class _ClipboardCardState extends State<ClipboardCard> {
                       : EdgeInsets.zero,
                   decoration: isCode || isUrl
                       ? BoxDecoration(
-                          color: const Color(0xFF090A0D),
+                          color: codeBg,
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: const Color(0xFF1E222E)),
+                          border: Border.all(color: borderColor),
                         )
                       : null,
                   child: Text(
@@ -253,7 +266,7 @@ class _ClipboardCardState extends State<ClipboardCard> {
                       fontSize: isCode || isUrl ? 13 : 14,
                       height: 1.5,
                       fontFamily: isCode || isUrl ? 'monospace' : null,
-                      color: isUrl ? const Color(0xFF60A5FA) : const Color(0xFFEDEDED),
+                      color: isUrl ? const Color(0xFF3B82F6) : textPrimary,
                     ),
                   ),
                 ),

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'core/constants/app_constants.dart';
 import 'core/models/clipboard_entry.dart';
+import 'core/providers/tampal_providers.dart';
 import 'ui/theme/app_theme.dart';
 import 'ui/widgets/clipboard_card.dart';
 import 'ui/widgets/empty_state.dart';
@@ -14,20 +15,24 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(
     const ProviderScope(
-      child: ClipSyncWebApp(),
+      child: TampalWebApp(),
     ),
   );
 }
 
-class ClipSyncWebApp extends StatelessWidget {
-  const ClipSyncWebApp({super.key});
+class TampalWebApp extends ConsumerWidget {
+  const TampalWebApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(appThemeModeProvider);
+
     return MaterialApp(
-      title: 'ClipSync Web Hub',
+      title: 'Tampal',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.darkTheme,
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: themeMode,
       home: const WebHomeScreen(),
     );
   }
@@ -152,9 +157,10 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
         await _fetchEntries(silent: true);
 
         if (mounted) {
+          final isDark = Theme.of(context).brightness == Brightness.dark;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              backgroundColor: AppTheme.surfaceDark,
+              backgroundColor: isDark ? AppTheme.surfaceDark : Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
                 side: const BorderSide(color: AppTheme.successColor),
@@ -165,8 +171,11 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Pushed to Mac & Android: "${text.length > 30 ? '${text.substring(0, 30)}...' : text}"',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
+                      'Pushed to all devices: "${text.length > 30 ? '${text.substring(0, 30)}...' : text}"',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? AppTheme.textPrimary : AppTheme.lightTextPrimary,
+                      ),
                     ),
                   ),
                 ],
@@ -233,28 +242,41 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
 
   void _showServerConfigDialog() {
     _serverUrlController.text = _serverUrl;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.darkCard,
+        backgroundColor: isDark ? AppTheme.darkCard : AppTheme.lightCard,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: AppTheme.glassBorder),
+          side: BorderSide(color: isDark ? AppTheme.glassBorder : AppTheme.lightBorder),
         ),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.hub_rounded, color: AppTheme.accentColor),
-            SizedBox(width: 10),
-            Text('ClipSync Hub Connection'),
+            const Icon(Icons.hub_rounded, color: AppTheme.accentColor),
+            const SizedBox(width: 10),
+            Text(
+              'Tampal Hub Connection',
+              style: TextStyle(
+                color: isDark ? AppTheme.textPrimary : AppTheme.lightTextPrimary,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Enter the address of the ClipSync Desktop server on your Wi-Fi network:',
-              style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13, height: 1.4),
+            Text(
+              'Enter the address of the Tampal Desktop server on your Wi-Fi network:',
+              style: TextStyle(
+                color: isDark ? const Color(0xFF94A3B8) : AppTheme.lightTextSecondary,
+                fontSize: 13,
+                height: 1.4,
+              ),
             ),
             const SizedBox(height: 16),
             TextField(
@@ -266,16 +288,22 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
               ),
             ),
             const SizedBox(height: 12),
-            const Text(
-              'Check your Mac or PC ClipSync app under "Web Dashboard" to find your active Wi-Fi address.',
-              style: TextStyle(color: Color(0xFF64748B), fontSize: 11),
+            Text(
+              'Check your Mac or PC Tampal app under "Web Dashboard" to find your active Wi-Fi address.',
+              style: TextStyle(
+                color: isDark ? const Color(0xFF64748B) : AppTheme.lightTextMuted,
+                fontSize: 11,
+              ),
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8))),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: isDark ? const Color(0xFF94A3B8) : AppTheme.lightTextSecondary),
+            ),
           ),
           ElevatedButton(
             onPressed: () {
@@ -337,9 +365,10 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
     final filtered = _getFilteredEntries();
     final linkCount = _entries.where((e) => e.content.startsWith('http://') || e.content.startsWith('https://')).length;
     final codeCount = _entries.where((e) => e.content.contains('class ') || e.content.contains('def ') || e.content.startsWith('{')).length;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: AppTheme.darkBg,
+      backgroundColor: isDark ? AppTheme.darkBg : AppTheme.lightBg,
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 820),
@@ -347,19 +376,19 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
             children: [
               const SizedBox(height: 12),
               // Top Clean Navigation Header
-              _buildHeader(),
+              _buildHeader(isDark),
               const SizedBox(height: 6),
 
               // Hub Connection Status Strip
-              _buildConnectionStrip(),
+              _buildConnectionStrip(isDark),
               const SizedBox(height: 12),
 
               // Raycast Command Broadcast Box
-              _buildComposer(),
+              _buildComposer(isDark),
               const SizedBox(height: 12),
 
               // Clean Segmented Tabs & Search
-              _buildFilterBar(linkCount, codeCount),
+              _buildFilterBar(linkCount, codeCount, isDark),
               const SizedBox(height: 8),
 
               // Clipboard Feed
@@ -373,7 +402,7 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
                             title: _searchQuery.isNotEmpty ? 'No matching entries' : 'No clipboard history',
                             message: _isConnected
                                 ? 'Copies from any connected device will sync automatically.'
-                                : 'Ensure ClipSync desktop app is running on your Mac/PC.',
+                                : 'Ensure Tampal desktop app is running on your Mac/PC.',
                             icon: Icons.content_paste_off_rounded,
                             actionLabel: _isConnected ? null : 'Configure Hub',
                             onAction: _isConnected ? null : _showServerConfigDialog,
@@ -409,7 +438,7 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(bool isDark) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
@@ -418,32 +447,52 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
             width: 30,
             height: 30,
             decoration: BoxDecoration(
-              color: AppTheme.darkCard,
+              color: isDark ? AppTheme.darkCard : AppTheme.lightCard,
               borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: AppTheme.glassBorder),
+              border: Border.all(color: isDark ? AppTheme.glassBorder : AppTheme.lightBorder),
             ),
-            child: const Icon(Icons.copy_rounded, color: AppTheme.textPrimary, size: 16),
+            child: Icon(
+              Icons.sync_alt_rounded,
+              color: isDark ? AppTheme.textPrimary : AppTheme.lightTextPrimary,
+              size: 16,
+            ),
           ),
           const SizedBox(width: 10),
-          const Column(
+          Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'ClipSync',
+                'Tampal',
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
-                  color: AppTheme.textPrimary,
+                  color: isDark ? AppTheme.textPrimary : AppTheme.lightTextPrimary,
                   letterSpacing: -0.2,
                 ),
               ),
               Text(
                 'Local Clipboard Network',
-                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark ? AppTheme.textSecondary : AppTheme.lightTextSecondary,
+                ),
               ),
             ],
           ),
           const Spacer(),
+          // Theme Toggle Button
+          IconButton(
+            icon: Icon(
+              isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+              color: isDark ? AppTheme.textSecondary : AppTheme.lightTextSecondary,
+              size: 19,
+            ),
+            tooltip: isDark ? 'Switch to Light mode' : 'Switch to Dark mode',
+            onPressed: () {
+              ref.read(appThemeModeProvider.notifier).toggle();
+            },
+          ),
+          const SizedBox(width: 4),
           IconButton(
             icon: _isLoading
                 ? const SizedBox(
@@ -451,13 +500,21 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
                     height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor),
                   )
-                : const Icon(Icons.refresh_rounded, color: AppTheme.textSecondary, size: 19),
+                : Icon(
+                    Icons.refresh_rounded,
+                    color: isDark ? AppTheme.textSecondary : AppTheme.lightTextSecondary,
+                    size: 19,
+                  ),
             tooltip: 'Sync now',
             onPressed: () => _fetchEntries(),
           ),
           const SizedBox(width: 4),
           IconButton(
-            icon: const Icon(Icons.tune_rounded, color: AppTheme.textSecondary, size: 19),
+            icon: Icon(
+              Icons.tune_rounded,
+              color: isDark ? AppTheme.textSecondary : AppTheme.lightTextSecondary,
+              size: 19,
+            ),
             tooltip: 'Hub settings',
             onPressed: _showServerConfigDialog,
           ),
@@ -466,14 +523,14 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
     );
   }
 
-  Widget _buildConnectionStrip() {
+  Widget _buildConnectionStrip(bool isDark) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceDark,
+        color: isDark ? AppTheme.surfaceDark : AppTheme.surfaceLight,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: AppTheme.glassBorder),
+        border: Border.all(color: isDark ? AppTheme.glassBorder : AppTheme.lightBorder),
       ),
       child: Row(
         children: [
@@ -493,7 +550,9 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
                   : (_errorMessage ?? 'Connecting to $_serverUrl...'),
               style: TextStyle(
                 fontSize: 12,
-                color: _isConnected ? AppTheme.textPrimary : const Color(0xFFF87171),
+                color: _isConnected
+                    ? (isDark ? AppTheme.textPrimary : AppTheme.lightTextPrimary)
+                    : const Color(0xFFF87171),
                 fontWeight: FontWeight.w400,
               ),
               overflow: TextOverflow.ellipsis,
@@ -506,21 +565,27 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
             onPressed: _showServerConfigDialog,
-            child: const Text('Configure', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+            child: Text(
+              'Configure',
+              style: TextStyle(
+                fontSize: 12,
+                color: isDark ? AppTheme.textSecondary : AppTheme.lightTextSecondary,
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildComposer() {
+  Widget _buildComposer(bool isDark) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppTheme.darkCard,
+        color: isDark ? AppTheme.darkCard : AppTheme.lightCard,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppTheme.glassBorder),
+        border: Border.all(color: isDark ? AppTheme.glassBorder : AppTheme.lightBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -529,10 +594,17 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
             controller: _composerController,
             minLines: 2,
             maxLines: 4,
-            style: const TextStyle(fontSize: 13.5, height: 1.45, color: AppTheme.textPrimary),
-            decoration: const InputDecoration(
+            style: TextStyle(
+              fontSize: 13.5,
+              height: 1.45,
+              color: isDark ? AppTheme.textPrimary : AppTheme.lightTextPrimary,
+            ),
+            decoration: InputDecoration(
               hintText: 'Type or paste to broadcast across your devices...',
-              hintStyle: TextStyle(color: AppTheme.textMuted, fontSize: 13),
+              hintStyle: TextStyle(
+                color: isDark ? AppTheme.textMuted : AppTheme.lightTextMuted,
+                fontSize: 13,
+              ),
               filled: false,
               border: InputBorder.none,
               enabledBorder: InputBorder.none,
@@ -542,7 +614,10 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
             onSubmitted: (_) => _sendText(),
           ),
           const SizedBox(height: 8),
-          const Divider(color: Color(0xFF191C26), height: 1),
+          Divider(
+            color: isDark ? const Color(0xFF191C26) : const Color(0xFFE5E7EB),
+            height: 1,
+          ),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -550,19 +625,26 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0F1016),
+                  color: isDark ? const Color(0xFF0F1016) : const Color(0xFFF3F4F6),
                   borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: AppTheme.glassBorder),
+                  border: Border.all(color: isDark ? AppTheme.glassBorder : AppTheme.lightBorder),
                 ),
-                child: const Text(
+                child: Text(
                   '⌘ Enter',
-                  style: TextStyle(fontSize: 10, fontFamily: 'monospace', color: AppTheme.textSecondary),
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontFamily: 'monospace',
+                    color: isDark ? AppTheme.textSecondary : AppTheme.lightTextSecondary,
+                  ),
                 ),
               ),
               const SizedBox(width: 6),
-              const Text(
+              Text(
                 'to broadcast',
-                style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: isDark ? AppTheme.textMuted : AppTheme.lightTextMuted,
+                ),
               ),
               const Spacer(),
               // Paste button
@@ -571,9 +653,9 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
                 label: const Text('Paste'),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  side: const BorderSide(color: AppTheme.glassBorder),
+                  side: BorderSide(color: isDark ? AppTheme.glassBorder : AppTheme.lightBorder),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                  foregroundColor: AppTheme.textSecondary,
+                  foregroundColor: isDark ? AppTheme.textSecondary : AppTheme.lightTextSecondary,
                   textStyle: const TextStyle(fontSize: 12),
                 ),
                 onPressed: _pasteFromSystemClipboard,
@@ -585,7 +667,13 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
                     _composerController.clear();
                     setState(() {});
                   },
-                  child: const Text('Clear', style: TextStyle(color: AppTheme.textMuted, fontSize: 12)),
+                  child: Text(
+                    'Clear',
+                    style: TextStyle(
+                      color: isDark ? AppTheme.textMuted : AppTheme.lightTextMuted,
+                      fontSize: 12,
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 4),
               ],
@@ -593,16 +681,19 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
                 onPressed: _isSending ? null : _sendText,
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  backgroundColor: Colors.white,
-                  foregroundColor: const Color(0xFF0C0D11),
+                  backgroundColor: isDark ? Colors.white : const Color(0xFF111827),
+                  foregroundColor: isDark ? const Color(0xFF0C0D11) : Colors.white,
                   elevation: 0,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                 ),
                 child: _isSending
-                    ? const SizedBox(
+                    ? SizedBox(
                         width: 12,
                         height: 12,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0C0D11)),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: isDark ? const Color(0xFF0C0D11) : Colors.white,
+                        ),
                       )
                     : const Text(
                         'Broadcast',
@@ -616,25 +707,25 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
     );
   }
 
-  Widget _buildFilterBar(int linkCount, int codeCount) {
+  Widget _buildFilterBar(int linkCount, int codeCount, bool isDark) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          // Clean Segmented Tabs (No Emojis)
+          // Clean Segmented Tabs
           Container(
             padding: const EdgeInsets.all(2),
             decoration: BoxDecoration(
-              color: const Color(0xFF0F1016),
+              color: isDark ? const Color(0xFF0F1016) : const Color(0xFFF3F4F6),
               borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: AppTheme.glassBorder),
+              border: Border.all(color: isDark ? AppTheme.glassBorder : AppTheme.lightBorder),
             ),
             child: Row(
               children: [
-                _buildSegmentTab('All', '${_entries.length}', _FilterCategory.all),
-                _buildSegmentTab('Links', '$linkCount', _FilterCategory.links),
-                _buildSegmentTab('Code', '$codeCount', _FilterCategory.code),
-                _buildSegmentTab('Text', '${_entries.length - linkCount - codeCount}', _FilterCategory.text),
+                _buildSegmentTab('All', '${_entries.length}', _FilterCategory.all, isDark),
+                _buildSegmentTab('Links', '$linkCount', _FilterCategory.links, isDark),
+                _buildSegmentTab('Code', '$codeCount', _FilterCategory.code, isDark),
+                _buildSegmentTab('Text', '${_entries.length - linkCount - codeCount}', _FilterCategory.text, isDark),
               ],
             ),
           ),
@@ -649,13 +740,27 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
                 ? TextField(
                     controller: _searchController,
                     autofocus: true,
-                    style: const TextStyle(fontSize: 12, color: AppTheme.textPrimary),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? AppTheme.textPrimary : AppTheme.lightTextPrimary,
+                    ),
                     decoration: InputDecoration(
                       hintText: 'Search...',
-                      hintStyle: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
-                      prefixIcon: const Icon(Icons.search_rounded, size: 14, color: AppTheme.textSecondary),
+                      hintStyle: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? AppTheme.textMuted : AppTheme.lightTextMuted,
+                      ),
+                      prefixIcon: Icon(
+                        Icons.search_rounded,
+                        size: 14,
+                        color: isDark ? AppTheme.textSecondary : AppTheme.lightTextSecondary,
+                      ),
                       suffixIcon: IconButton(
-                        icon: const Icon(Icons.close_rounded, size: 14, color: AppTheme.textSecondary),
+                        icon: Icon(
+                          Icons.close_rounded,
+                          size: 14,
+                          color: isDark ? AppTheme.textSecondary : AppTheme.lightTextSecondary,
+                        ),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                         onPressed: () {
@@ -667,25 +772,31 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
                         },
                       ),
                       filled: true,
-                      fillColor: const Color(0xFF0F1016),
+                      fillColor: isDark ? const Color(0xFF0F1016) : const Color(0xFFF3F4F6),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(6),
-                        borderSide: const BorderSide(color: AppTheme.glassBorder),
+                        borderSide: BorderSide(color: isDark ? AppTheme.glassBorder : AppTheme.lightBorder),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(6),
-                        borderSide: const BorderSide(color: AppTheme.glassBorder),
+                        borderSide: BorderSide(color: isDark ? AppTheme.glassBorder : AppTheme.lightBorder),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(6),
-                        borderSide: const BorderSide(color: AppTheme.glassBorderHover),
+                        borderSide: BorderSide(
+                          color: isDark ? AppTheme.glassBorderHover : AppTheme.primaryColor,
+                        ),
                       ),
                       contentPadding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
                     ),
                     onChanged: (val) => setState(() => _searchQuery = val),
                   )
                 : IconButton(
-                    icon: const Icon(Icons.search_rounded, size: 18, color: AppTheme.textSecondary),
+                    icon: Icon(
+                      Icons.search_rounded,
+                      size: 18,
+                      color: isDark ? AppTheme.textSecondary : AppTheme.lightTextSecondary,
+                    ),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                     tooltip: 'Search',
@@ -697,7 +808,7 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
     );
   }
 
-  Widget _buildSegmentTab(String label, String count, _FilterCategory category) {
+  Widget _buildSegmentTab(String label, String count, _FilterCategory category, bool isDark) {
     final isSelected = _currentFilter == category;
     return InkWell(
       onTap: () => setState(() => _currentFilter = category),
@@ -705,8 +816,19 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.darkCard : Colors.transparent,
+          color: isSelected
+              ? (isDark ? AppTheme.darkCard : Colors.white)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(4),
+          boxShadow: isSelected && !isDark
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 2,
+                    offset: const Offset(0, 1),
+                  ),
+                ]
+              : null,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -716,7 +838,9 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                color: isSelected ? AppTheme.textPrimary : AppTheme.textSecondary,
+                color: isSelected
+                    ? (isDark ? AppTheme.textPrimary : AppTheme.lightTextPrimary)
+                    : (isDark ? AppTheme.textSecondary : AppTheme.lightTextSecondary),
               ),
             ),
             const SizedBox(width: 5),
@@ -725,7 +849,9 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
               style: TextStyle(
                 fontSize: 10.5,
                 fontWeight: FontWeight.w500,
-                color: isSelected ? AppTheme.textSecondary : AppTheme.textMuted,
+                color: isSelected
+                    ? (isDark ? AppTheme.textSecondary : AppTheme.lightTextSecondary)
+                    : (isDark ? AppTheme.textMuted : AppTheme.lightTextMuted),
               ),
             ),
           ],

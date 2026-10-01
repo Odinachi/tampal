@@ -152,7 +152,7 @@ class SyncService {
         onClosed: _handleConnectionClosed,
         peerDevice: PeerDevice(
           id: host,
-          name: peerName ?? 'ClipSync Desktop',
+          name: peerName ?? 'Tampal Desktop',
           host: host,
           port: port,
           lastSeen: DateTime.now(),

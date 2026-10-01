@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
 import 'core/database/clipboard_database.dart';
-import 'core/providers/clipsync_providers.dart';
+import 'core/providers/tampal_providers.dart';
 import 'core/services/settings_service.dart';
 import 'main_web.dart' as web;
 import 'ui/screens/history_screen.dart';
@@ -32,14 +32,14 @@ void main() async {
         backgroundColor: Colors.transparent,
         skipTaskbar: false,
         titleBarStyle: TitleBarStyle.normal,
-        title: 'ClipSync Desktop',
+        title: 'Tampal Desktop',
       );
       windowManager.waitUntilReadyToShow(windowOptions, () async {
         await windowManager.show();
         await windowManager.focus();
       });
     } catch (e) {
-      debugPrint('[ClipSyncDesktop] Window manager setup warning: $e');
+      debugPrint('[TampalDesktop] Window manager setup warning: $e');
     }
   }
 
@@ -61,19 +61,19 @@ void main() async {
       overrides: [
         settingsServiceProvider.overrideWithValue(settings),
       ],
-      child: const ClipSyncDesktopApp(),
+      child: const TampalDesktopApp(),
     ),
   );
 }
 
-class ClipSyncDesktopApp extends ConsumerStatefulWidget {
-  const ClipSyncDesktopApp({super.key});
+class TampalDesktopApp extends ConsumerStatefulWidget {
+  const TampalDesktopApp({super.key});
 
   @override
-  ConsumerState<ClipSyncDesktopApp> createState() => _ClipSyncDesktopAppState();
+  ConsumerState<TampalDesktopApp> createState() => _TampalDesktopAppState();
 }
 
-class _ClipSyncDesktopAppState extends ConsumerState<ClipSyncDesktopApp> {
+class _TampalDesktopAppState extends ConsumerState<TampalDesktopApp> {
   @override
   void initState() {
     super.initState();
@@ -105,10 +105,14 @@ class _ClipSyncDesktopAppState extends ConsumerState<ClipSyncDesktopApp> {
 
   @override
   Widget build(BuildContext context) {
+    final themeMode = ref.watch(appThemeModeProvider);
+
     return MaterialApp(
-      title: 'ClipSync Desktop',
+      title: 'Tampal Desktop',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.darkTheme,
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: themeMode,
       home: const HistoryScreen(),
     );
   }

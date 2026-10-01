@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/database/clipboard_database.dart';
-import 'core/providers/clipsync_providers.dart';
+import 'core/providers/tampal_providers.dart';
 import 'core/services/settings_service.dart';
 import 'main_web.dart' as web;
 import 'ui/screens/history_screen.dart';
@@ -49,19 +49,19 @@ void main() async {
       overrides: [
         settingsServiceProvider.overrideWithValue(settings),
       ],
-      child: const ClipSyncMobileApp(),
+      child: const TampalMobileApp(),
     ),
   );
 }
 
-class ClipSyncMobileApp extends ConsumerStatefulWidget {
-  const ClipSyncMobileApp({super.key});
+class TampalMobileApp extends ConsumerStatefulWidget {
+  const TampalMobileApp({super.key});
 
   @override
-  ConsumerState<ClipSyncMobileApp> createState() => _ClipSyncMobileAppState();
+  ConsumerState<TampalMobileApp> createState() => _TampalMobileAppState();
 }
 
-class _ClipSyncMobileAppState extends ConsumerState<ClipSyncMobileApp> {
+class _TampalMobileAppState extends ConsumerState<TampalMobileApp> {
   @override
   void initState() {
     super.initState();
@@ -82,7 +82,7 @@ class _ClipSyncMobileAppState extends ConsumerState<ClipSyncMobileApp> {
     // 3. Auto-connect to last paired peer if configured
     final settings = ref.read(settingsServiceProvider);
     if (settings.autoSync && settings.lastPairedHost != null && settings.lastPairedPort != null) {
-      debugPrint('[ClipSyncMobile] Auto-connecting to last paired peer: ${settings.lastPairedHost}:${settings.lastPairedPort}');
+      debugPrint('[TampalMobile] Auto-connecting to last paired peer: ${settings.lastPairedHost}:${settings.lastPairedPort}');
       final success = await ref.read(syncServiceProvider).connectToPeer(
         settings.lastPairedHost!,
         settings.lastPairedPort!,
@@ -96,10 +96,14 @@ class _ClipSyncMobileAppState extends ConsumerState<ClipSyncMobileApp> {
 
   @override
   Widget build(BuildContext context) {
+    final themeMode = ref.watch(appThemeModeProvider);
+
     return MaterialApp(
-      title: 'ClipSync Mobile',
+      title: 'Tampal Mobile',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.darkTheme,
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: themeMode,
       home: const HistoryScreen(),
     );
   }

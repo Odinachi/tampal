@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/clipboard_entry.dart';
-import '../../core/providers/clipsync_providers.dart';
+import '../../core/providers/tampal_providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/clipboard_card.dart';
 import '../widgets/connection_badge.dart';
@@ -288,14 +288,28 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                       ),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(Icons.copy_rounded, color: Colors.white, size: 18),
+                    child: const Icon(Icons.sync_alt_rounded, color: Colors.white, size: 18),
                   ),
                   const SizedBox(width: 10),
-                  const Text('ClipSync'),
+                  const Text('Tampal'),
                 ],
               ),
         actions: [
           if (!_isSearching) ...[
+            // Theme toggle button
+            IconButton(
+              icon: Icon(
+                Theme.of(context).brightness == Brightness.dark
+                    ? Icons.light_mode_outlined
+                    : Icons.dark_mode_outlined,
+              ),
+              tooltip: Theme.of(context).brightness == Brightness.dark
+                  ? 'Switch to Light Mode'
+                  : 'Switch to Dark Mode',
+              onPressed: () {
+                ref.read(appThemeModeProvider.notifier).toggle();
+              },
+            ),
             // Search toggle
             IconButton(
               icon: const Icon(Icons.search_rounded),

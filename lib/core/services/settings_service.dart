@@ -100,6 +100,6 @@ class SettingsService {
     if (Platform.isMacOS) return 'Mac Desktop';
     if (Platform.isWindows) return 'Windows PC';
     if (Platform.isLinux) return 'Linux Workstation';
-    return 'ClipSync Node';
+    return 'Tampal Node';
   }
 }

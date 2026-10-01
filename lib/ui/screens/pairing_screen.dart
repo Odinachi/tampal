@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/constants/app_constants.dart';
 import '../../core/models/device_info.dart';
 import '../../core/network/sync_service.dart';
-import '../../core/providers/clipsync_providers.dart';
+import '../../core/providers/tampal_providers.dart';
 import '../theme/app_theme.dart';
 import '../widgets/connection_badge.dart';
 
@@ -59,7 +60,7 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: AppTheme.errorColor,
-          content: Text('Failed to connect to $host:$port. Ensure peer is running ClipSync on the same Wi-Fi.'),
+          content: Text('Failed to connect to $host:$port. Ensure peer is running Tampal on the same Wi-Fi.'),
         ),
       );
     }
@@ -309,14 +310,14 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
                     Text(
                       isCurrentlyConnected
                           ? '${activePeer?.name ?? 'Device'} is connected'
-                          : 'No ClipSync devices found yet',
+                          : 'No Tampal devices found yet',
                       style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFFF1F5F9)),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       isCurrentlyConnected
                           ? 'This device is currently paired and actively syncing clipboard history.'
-                          : 'Make sure your other device is on the same local Wi-Fi network and has ClipSync open.',
+                          : 'Make sure your other device is on the same local Wi-Fi network and has Tampal open.',
                       textAlign: TextAlign.center,
                       style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
                     ),
@@ -453,7 +454,7 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
             _infoRow('Device Name', settings.deviceName),
             _infoRow('Platform', settings.platformName.toUpperCase()),
             _infoRow('Listening Port', settings.serverPort.toString()),
-            _infoRow('mDNS Service', '_clipsync._tcp'),
+            _infoRow('mDNS Service', AppConstants.serviceType),
             _infoRow('Device ID', settings.deviceId),
           ],
         ),

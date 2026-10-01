@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:clipsync/core/models/clipboard_entry.dart';
-import 'package:clipsync/core/network/sync_service.dart';
-import 'package:clipsync/ui/widgets/clipboard_card.dart';
-import 'package:clipsync/ui/widgets/connection_badge.dart';
-import 'package:clipsync/ui/widgets/empty_state.dart';
+import 'package:tampal/core/models/clipboard_entry.dart';
+import 'package:tampal/core/network/sync_service.dart';
+import 'package:tampal/ui/widgets/clipboard_card.dart';
+import 'package:tampal/ui/widgets/connection_badge.dart';
+import 'package:tampal/ui/widgets/empty_state.dart';
 
 void main() {
   group('Widget Tests', () {
@@ -32,7 +32,7 @@ void main() {
         id: 'test-id-1',
         deviceId: 'device-local',
         contentType: 'text',
-        content: 'Antigravity ClipSync Text',
+        content: 'Antigravity Tampal Text',
         createdAt: DateTime.now(),
       );
 
@@ -49,7 +49,7 @@ void main() {
         ),
       );
 
-      expect(find.text('Antigravity ClipSync Text'), findsOneWidget);
+      expect(find.text('Antigravity Tampal Text'), findsOneWidget);
       expect(find.text('This Device'), findsOneWidget);
 
       // Tap card to copy
