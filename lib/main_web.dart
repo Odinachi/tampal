@@ -99,6 +99,13 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
         } catch (_) {}
       }
     });
+
+    // Auto-join if page was opened via a scanned QR link: ?join=XXXX
+    final joinCode = uri.queryParameters['join'];
+    if (joinCode != null && RegExp(r'^\d{4}$').hasMatch(joinCode)) {
+      // Slight delay to let Flutter finish building
+      Future.microtask(() => _rtc.joinWithAnswer(joinCode));
+    }
   }
 
   @override
@@ -256,7 +263,7 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
                         ClipRRect(
                           borderRadius: BorderRadius.circular(8),
                           child: QrImageView(
-                            data: 'tampal://pair/$_roomCode',
+                            data: '${Uri.base.origin}/?join=$_roomCode',
                             version: QrVersions.auto,
                             size: 140,
                             backgroundColor: Colors.white,
