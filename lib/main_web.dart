@@ -88,7 +88,15 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
     _rtcMessageSub = _rtc.messageStream.listen((msg) {
       if (msg['type'] == 'entry') {
         try {
-          final entry = ClipboardEntry.fromSyncJson(msg['data'] as Map<String, dynamic>);
+          final data = msg['data'] as Map<String, dynamic>;
+          if (data['type'] == 'delete') {
+            final id = data['id'] as String?;
+            if (id != null && mounted) {
+              setState(() => _entries.removeWhere((e) => e.id == id));
+            }
+            return;
+          }
+          final entry = ClipboardEntry.fromSyncJson(data);
           if (mounted) {
             setState(() {
               // Prepend and deduplicate by id
@@ -202,14 +210,25 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
     _rtc.sendEntry({'type': 'delete', 'id': id});
   }
 
-  void _showP2PConnectDialog() {
+  Future<void> _showP2PConnectDialog() async {
     // Generate a new room code each time the dialog opens
     _roomCode = _generateRoomCode();
     _roomCodeController.clear();
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final joinCodeController = TextEditingController();
+    bool dialogDismissed = false;
+    Timer? autoCloseTimer;
 
-    showDialog(
+    void safelyCloseDialog(BuildContext dialogCtx) {
+      if (dialogDismissed) return;
+      dialogDismissed = true;
+      autoCloseTimer?.cancel();
+      if (dialogCtx.mounted && Navigator.of(dialogCtx, rootNavigator: true).canPop()) {
+        Navigator.of(dialogCtx, rootNavigator: true).pop();
+      }
+    }
+
+    await showDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) {
@@ -219,14 +238,14 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
 
           // Listen to RTC state changes to update the dialog
           void onRtcState(WebRtcState s) {
-            if (ctx.mounted) {
-              setDlgState(() {});
-              // Auto-close dialog when peer connects
-              if (s == WebRtcState.connected) {
-                Future.delayed(const Duration(milliseconds: 800), () {
-                  if (ctx.mounted) Navigator.pop(ctx);
-                });
-              }
+            if (dialogDismissed || !ctx.mounted) return;
+            setDlgState(() {});
+            // Auto-close dialog safely once when peer connects
+            if (s == WebRtcState.connected) {
+              autoCloseTimer?.cancel();
+              autoCloseTimer = Timer(const Duration(milliseconds: 700), () {
+                safelyCloseDialog(ctx);
+              });
             }
           }
 
@@ -477,7 +496,7 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
                             onPressed: () async {
                               final code = joinCodeController.text.trim();
                               if (code.length == 4) {
-                                Navigator.pop(ctx);
+                                safelyCloseDialog(ctx);
                                 await _rtc.joinWithAnswer(code);
                               }
                             },
@@ -523,8 +542,8 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
                 ? [
                     TextButton(
                       onPressed: () {
+                        safelyCloseDialog(ctx);
                         _rtc.close();
-                        Navigator.pop(ctx);
                       },
                       child: Text(
                         'Cancel',
@@ -534,7 +553,7 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
                   ]
                 : [
                     TextButton(
-                      onPressed: () => Navigator.pop(ctx),
+                      onPressed: () => safelyCloseDialog(ctx),
                       child: Text(
                         'Cancel',
                         style: TextStyle(color: isDark ? AppTheme.textSecondary : AppTheme.lightTextSecondary),
@@ -564,6 +583,16 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
         );
       },
     );
+
+    dialogDismissed = true;
+    autoCloseTimer?.cancel();
+    joinCodeController.dispose();
+
+    // Restore standard stream subscription without reference to dialog context
+    _rtcStateSub?.cancel();
+    _rtcStateSub = _rtc.stateStream.listen((state) {
+      if (mounted) setState(() => _rtcState = state);
+    });
   }
 
 

@@ -95,6 +95,7 @@ class TampalWebRTC {
       default:
         return; // unknown state — don't update
     }
+    if (_state == next) return;
     _state = next;
     if (!_stateController.isClosed) _stateController.add(next);
   }
@@ -129,6 +130,7 @@ class TampalWebRTC {
   }
 
   void _updateState(WebRtcState s) {
+    if (_state == s) return;
     _state = s;
     if (!_stateController.isClosed) _stateController.add(s);
   }

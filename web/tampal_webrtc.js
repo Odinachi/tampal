@@ -24,11 +24,14 @@
   let _onMessage = null;
   let _onStateChange = null;
   let _pollingInterval = null;
+  let _answerPoller = null;
   let _knownCandidateCount = 0;
 
   function cleanup() {
     if (_pollingInterval) clearInterval(_pollingInterval);
     _pollingInterval = null;
+    if (_answerPoller) clearInterval(_answerPoller);
+    _answerPoller = null;
     _knownCandidateCount = 0;
   }
 
@@ -72,7 +75,11 @@
 
   function setupPeerEvents(pc, signalBase, room, localSide) {
     pc.oniceconnectionstatechange = () => {
-      if (_onStateChange) _onStateChange(pc.iceConnectionState);
+      const state = pc.iceConnectionState;
+      // Let channel.onopen be the sole authority for 'connected' so we don't emit duplicates.
+      if (state === 'failed' || state === 'disconnected' || state === 'closed') {
+        if (_onStateChange) _onStateChange(state);
+      }
     };
     pc.onicecandidate = async (e) => {
       if (e.candidate) {
@@ -124,11 +131,12 @@
       if (_onStateChange) _onStateChange('waiting');
 
       // Poll for answer
-      const answerPoller = setInterval(async () => {
+      _answerPoller = setInterval(async () => {
         try {
           const { sdp } = await getSignal(signalBase, room, 'answer');
           if (sdp) {
-            clearInterval(answerPoller);
+            clearInterval(_answerPoller);
+            _answerPoller = null;
             await pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(sdp)));
             // Now start polling for B's ICE candidates
             await pollForRemoteIce(pc, signalBase, room, 'b');
