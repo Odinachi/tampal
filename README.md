@@ -247,6 +247,19 @@ flutter run -d ios -t lib/main_mobile.dart
 flutter run -d chrome -t lib/main_web.dart
 ```
 
+### Deploying to Vercel
+This repository includes a [vercel.json](file:///Users/Apple/vscode_projects/copysync/vercel.json) and [vercel-build.sh](file:///Users/Apple/vscode_projects/copysync/vercel-build.sh) script that automatically installs the Flutter SDK in the Vercel build environment and compiles the web release:
+
+1. **Via GitHub Integration**: Connect your repository to Vercel. Vercel will automatically detect `vercel.json` and execute `bash vercel-build.sh` to output the build to `build/web`.
+2. **Via Vercel CLI**:
+   ```bash
+   # Build locally
+   flutter build web --release
+
+   # Deploy compiled output to Vercel
+   npx vercel deploy build/web --prod
+   ```
+
 ---
 
 ## 💻 VS Code Run & Debug Profiles
