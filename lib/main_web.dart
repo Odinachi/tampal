@@ -212,9 +212,10 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => StatefulBuilder(
+      builder: (ctx) {
+        bool isHosting = false;
+        return StatefulBuilder(
         builder: (ctx, setDlgState) {
-          bool isHosting = false;
 
           // Listen to RTC state changes to update the dialog
           void onRtcState(WebRtcState s) {
@@ -560,7 +561,8 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
                   ],
           );
         },
-      ),
+        );
+      },
     );
   }
 
