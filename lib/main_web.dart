@@ -214,32 +214,151 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
       barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlgState) {
-          return AlertDialog(
-            backgroundColor: isDark ? AppTheme.darkCard : AppTheme.lightCard,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: isDark ? AppTheme.glassBorder : AppTheme.lightBorder),
-            ),
-            title: Row(
+          bool isHosting = false;
+
+          // Listen to RTC state changes to update the dialog
+          void onRtcState(WebRtcState s) {
+            if (ctx.mounted) {
+              setDlgState(() {});
+              // Auto-close dialog when peer connects
+              if (s == WebRtcState.connected) {
+                Future.delayed(const Duration(milliseconds: 800), () {
+                  if (ctx.mounted) Navigator.pop(ctx);
+                });
+              }
+            }
+          }
+
+          // ── Waiting / Hosting screen ────────────────────────────────────
+          Widget buildHostingScreen() {
+            final rtcState = _rtcState;
+            final Color statusColor;
+            final String statusLabel;
+            final bool spinning;
+            switch (rtcState) {
+              case WebRtcState.waiting:
+                statusColor = const Color(0xFFF59E0B);
+                statusLabel = 'Waiting for peer to scan\u2026';
+                spinning = true;
+              case WebRtcState.connecting:
+                statusColor = const Color(0xFFF59E0B);
+                statusLabel = 'Peer found \u2014 establishing link\u2026';
+                spinning = true;
+              case WebRtcState.connected:
+                statusColor = AppTheme.successColor;
+                statusLabel = 'Connected! \u2714';
+                spinning = false;
+              default:
+                statusColor = AppTheme.errorColor;
+                statusLabel = 'Something went wrong. Try again.';
+                spinning = false;
+            }
+
+            final joinUrl = '${Uri.base.origin}/?join=$_roomCode';
+
+            return Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.wifi_tethering_rounded, color: AppTheme.accentColor),
-                const SizedBox(width: 10),
+                // Status pill
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: statusColor.withValues(alpha: 0.4)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (spinning)
+                        SizedBox(
+                          width: 11,
+                          height: 11,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1.8,
+                            color: statusColor,
+                          ),
+                        )
+                      else
+                        Icon(Icons.check_circle_rounded, color: statusColor, size: 13),
+                      const SizedBox(width: 7),
+                      Text(
+                        statusLabel,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: statusColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                // QR Code
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: QrImageView(
+                    data: joinUrl,
+                    version: QrVersions.auto,
+                    size: 180,
+                    backgroundColor: Colors.white,
+                    padding: const EdgeInsets.all(10),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // 4-digit code blocks
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: _roomCode.split('').map((digit) => Container(
+                    width: 42,
+                    height: 50,
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1E222E) : Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppTheme.accentColor.withValues(alpha: 0.6)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppTheme.accentColor.withValues(alpha: 0.1),
+                          blurRadius: 6,
+                          spreadRadius: 1,
+                        ),
+                      ],
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      digit,
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700,
+                        fontFamily: 'monospace',
+                        color: AppTheme.accentColor,
+                      ),
+                    ),
+                  )).toList(),
+                ),
+                const SizedBox(height: 12),
                 Text(
-                  'P2P Browser Connect',
+                  'Scan the QR or enter the code on the other device',
+                  textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: isDark ? AppTheme.textPrimary : AppTheme.lightTextPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                    color: isDark ? AppTheme.textSecondary : AppTheme.lightTextSecondary,
                   ),
                 ),
               ],
-            ),
-            content: SizedBox(
+            );
+          }
+
+          // ── Pair screen (initial) ───────────────────────────────────────
+          Widget buildPairScreen() {
+            return SizedBox(
               width: 340,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // HOST side
+                  // HOST side preview
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
@@ -250,7 +369,7 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
                     child: Column(
                       children: [
                         Text(
-                          'On this device — Share this code',
+                          'On this device \u2014 Share this code',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
@@ -259,7 +378,6 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
                           ),
                         ),
                         const SizedBox(height: 10),
-                        // QR code
                         ClipRRect(
                           borderRadius: BorderRadius.circular(8),
                           child: QrImageView(
@@ -294,9 +412,9 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
                             ),
                           )).toList(),
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 6),
                         Text(
-                          'Waiting for peer to join...',
+                          'Tap \u201cHost Session\u201d to activate',
                           style: TextStyle(
                             fontSize: 11,
                             color: isDark ? AppTheme.textMuted : AppTheme.lightTextMuted,
@@ -313,7 +431,7 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'On the other device — Enter their code',
+                        'On the other device \u2014 Enter their code',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
@@ -376,34 +494,76 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
                   ),
                 ],
               ),
+            );
+          }
+
+          return AlertDialog(
+            backgroundColor: isDark ? AppTheme.darkCard : AppTheme.lightCard,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: isDark ? AppTheme.glassBorder : AppTheme.lightBorder),
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: Text(
-                  'Cancel',
-                  style: TextStyle(color: isDark ? AppTheme.textSecondary : AppTheme.lightTextSecondary),
+            title: Row(
+              children: [
+                const Icon(Icons.wifi_tethering_rounded, color: AppTheme.accentColor),
+                const SizedBox(width: 10),
+                Text(
+                  isHosting ? 'Waiting for Peer\u2026' : 'P2P Browser Connect',
+                  style: TextStyle(
+                    color: isDark ? AppTheme.textPrimary : AppTheme.lightTextPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
-              ElevatedButton.icon(
-                icon: const Icon(Icons.wifi_tethering_rounded, size: 15),
-                label: const Text('Host Session'),
-                onPressed: () async {
-                  Navigator.pop(ctx);
-                  await _rtc.createOffer(_roomCode);
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: isDark ? Colors.white : const Color(0xFF111827),
-                  foregroundColor: isDark ? const Color(0xFF0C0D11) : Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-              ),
-            ],
+              ],
+            ),
+            content: isHosting ? buildHostingScreen() : buildPairScreen(),
+            actions: isHosting
+                ? [
+                    TextButton(
+                      onPressed: () {
+                        _rtc.close();
+                        Navigator.pop(ctx);
+                      },
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(color: isDark ? AppTheme.textSecondary : AppTheme.lightTextSecondary),
+                      ),
+                    ),
+                  ]
+                : [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(color: isDark ? AppTheme.textSecondary : AppTheme.lightTextSecondary),
+                      ),
+                    ),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.wifi_tethering_rounded, size: 15),
+                      label: const Text('Host Session'),
+                      onPressed: () async {
+                        setDlgState(() => isHosting = true);
+                        _rtcStateSub?.cancel();
+                        _rtcStateSub = _rtc.stateStream.listen((s) {
+                          if (mounted) setState(() => _rtcState = s);
+                          onRtcState(s);
+                        });
+                        await _rtc.createOffer(_roomCode);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isDark ? Colors.white : const Color(0xFF111827),
+                        foregroundColor: isDark ? const Color(0xFF0C0D11) : Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ],
           );
         },
       ),
     );
   }
+
 
   List<ClipboardEntry> _getFilteredEntries() {
     var result = _entries;
