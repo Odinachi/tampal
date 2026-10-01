@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -51,6 +52,7 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _composerController = TextEditingController();
   final TextEditingController _serverUrlController = TextEditingController();
+  final TextEditingController _roomController = TextEditingController();
 
   List<ClipboardEntry> _entries = [];
   bool _isSearching = false;
@@ -63,20 +65,34 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
   Timer? _pollingTimer;
 
   late String _serverUrl;
+  String _currentRoom = 'default';
+  late String _deviceId;
 
   @override
   void initState() {
     super.initState();
-    final host = (Uri.base.host.isNotEmpty && Uri.base.host != '0.0.0.0')
-        ? Uri.base.host
-        : 'localhost';
-    _serverUrl = 'http://$host:${AppConstants.defaultWebPort}';
+    _deviceId = 'web-${DateTime.now().millisecondsSinceEpoch % 100000}';
+
+    // 1. Resolve room from URL query param if present (?room=myroom)
+    if (kIsWeb && Uri.base.queryParameters['room'] != null && Uri.base.queryParameters['room']!.isNotEmpty) {
+      _currentRoom = Uri.base.queryParameters['room']!;
+    }
+    _roomController.text = _currentRoom;
+
+    // 2. Resolve default server URL
+    // If hosted on HTTPS or a public domain (like Vercel), use the current origin without appending port 42881
+    if (kIsWeb && (Uri.base.scheme == 'https' || (Uri.base.host.isNotEmpty && !Uri.base.host.contains('localhost') && !Uri.base.host.contains('127.0.0.1')))) {
+      _serverUrl = Uri.base.origin;
+    } else {
+      final host = (Uri.base.host.isNotEmpty && Uri.base.host != '0.0.0.0') ? Uri.base.host : 'localhost';
+      _serverUrl = 'http://$host:${AppConstants.defaultWebPort}';
+    }
     _serverUrlController.text = _serverUrl;
 
     _fetchEntries();
 
-    // Auto-poll every 3 seconds for real-time live sync
-    _pollingTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+    // Auto-poll every 2.5 seconds for real-time live sync
+    _pollingTimer = Timer.periodic(const Duration(milliseconds: 2500), (_) {
       if (!_isLoading && !_isSending) {
         _fetchEntries(silent: true);
       }
@@ -89,6 +105,7 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
     _searchController.dispose();
     _composerController.dispose();
     _serverUrlController.dispose();
+    _roomController.dispose();
     super.dispose();
   }
 
@@ -98,8 +115,9 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
     }
 
     try {
-      final queryParam = _searchQuery.isNotEmpty ? '?q=${Uri.encodeComponent(_searchQuery)}' : '';
-      final uri = Uri.parse('$_serverUrl/api/entries$queryParam');
+      final queryParam = _searchQuery.isNotEmpty ? '&q=${Uri.encodeComponent(_searchQuery)}' : '';
+      final roomParam = '?room=${Uri.encodeComponent(_currentRoom)}';
+      final uri = Uri.parse('$_serverUrl/api/entries$roomParam$queryParam');
       final res = await http.get(uri).timeout(const Duration(seconds: 4));
 
       if (res.statusCode == 200) {
@@ -119,7 +137,7 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
         if (mounted) {
           setState(() {
             _isConnected = false;
-            _errorMessage = 'Server status ${res.statusCode}';
+            _errorMessage = 'Server responded with HTTP ${res.statusCode}';
           });
         }
       }
@@ -127,7 +145,7 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
       if (mounted) {
         setState(() {
           _isConnected = false;
-          _errorMessage = 'Desktop server offline at $_serverUrl';
+          _errorMessage = 'Sync server unreachable at $_serverUrl';
         });
       }
     } finally {
@@ -148,7 +166,12 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
       final res = await http.post(
         uri,
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'content': text}),
+        body: jsonEncode({
+          'content': text,
+          'room': _currentRoom,
+          'deviceId': _deviceId,
+          'contentType': 'text',
+        }),
       ).timeout(const Duration(seconds: 4));
 
       if (res.statusCode == 200) {
@@ -221,14 +244,14 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
 
   Future<void> _deleteEntry(String id) async {
     try {
-      final uri = Uri.parse('$_serverUrl/api/entries/$id');
+      final uri = Uri.parse('$_serverUrl/api/entries?id=${Uri.encodeComponent(id)}&room=${Uri.encodeComponent(_currentRoom)}');
       await http.delete(uri).timeout(const Duration(seconds: 3));
       setState(() {
         _entries.removeWhere((e) => e.id == id);
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Entry removed across devices')),
+          const SnackBar(content: Text('Entry removed')),
         );
       }
     } catch (e) {
@@ -242,83 +265,137 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
 
   void _showServerConfigDialog() {
     _serverUrlController.text = _serverUrl;
+    _roomController.text = _currentRoom;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: isDark ? AppTheme.darkCard : AppTheme.lightCard,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: isDark ? AppTheme.glassBorder : AppTheme.lightBorder),
-        ),
-        title: Row(
-          children: [
-            const Icon(Icons.hub_rounded, color: AppTheme.accentColor),
-            const SizedBox(width: 10),
-            Text(
-              'Tampal Hub Connection',
-              style: TextStyle(
-                color: isDark ? AppTheme.textPrimary : AppTheme.lightTextPrimary,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: isDark ? AppTheme.darkCard : AppTheme.lightCard,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: isDark ? AppTheme.glassBorder : AppTheme.lightBorder),
+          ),
+          title: Row(
+            children: [
+              const Icon(Icons.hub_rounded, color: AppTheme.accentColor),
+              const SizedBox(width: 10),
+              Text(
+                'Sync Connection Settings',
+                style: TextStyle(
+                  color: isDark ? AppTheme.textPrimary : AppTheme.lightTextPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Sync Room / Channel Code:',
+                  style: TextStyle(
+                    color: isDark ? AppTheme.textPrimary : AppTheme.lightTextPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: _roomController,
+                  decoration: const InputDecoration(
+                    labelText: 'Room Name',
+                    hintText: 'e.g. default, personal, work-laptop',
+                    prefixIcon: Icon(Icons.tag_rounded, color: Color(0xFF94A3B8)),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Devices with the same Room Code will automatically sync together.',
+                  style: TextStyle(
+                    color: isDark ? const Color(0xFF64748B) : AppTheme.lightTextMuted,
+                    fontSize: 11,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  'Server / Hub Address:',
+                  style: TextStyle(
+                    color: isDark ? AppTheme.textPrimary : AppTheme.lightTextPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: _serverUrlController,
+                  decoration: const InputDecoration(
+                    labelText: 'Server URL',
+                    hintText: 'https://your-domain.vercel.app or http://192.168.1.X:42881',
+                    prefixIcon: Icon(Icons.link_rounded, color: Color(0xFF94A3B8)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // Quick Preset Buttons
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    ActionChip(
+                      avatar: const Icon(Icons.cloud_queue_rounded, size: 14),
+                      label: const Text('Cloud Sync (Default)', style: TextStyle(fontSize: 11)),
+                      onPressed: () {
+                        setDialogState(() {
+                          _serverUrlController.text = Uri.base.origin;
+                        });
+                      },
+                    ),
+                    ActionChip(
+                      avatar: const Icon(Icons.desktop_windows_rounded, size: 14),
+                      label: const Text('Local Desktop Hub (:42881)', style: TextStyle(fontSize: 11)),
+                      onPressed: () {
+                        setDialogState(() {
+                          final host = (Uri.base.host.isNotEmpty && !Uri.base.host.contains('vercel.app'))
+                              ? Uri.base.host
+                              : 'localhost';
+                          _serverUrlController.text = 'http://$host:42881';
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(
+                'Cancel',
+                style: TextStyle(color: isDark ? const Color(0xFF94A3B8) : AppTheme.lightTextSecondary),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final newUrl = _serverUrlController.text.trim();
+                final newRoom = _roomController.text.trim();
+                if (newUrl.isNotEmpty) {
+                  Navigator.pop(ctx);
+                  setState(() {
+                    _serverUrl = newUrl.endsWith('/') ? newUrl.substring(0, newUrl.length - 1) : newUrl;
+                    _currentRoom = newRoom.isNotEmpty ? newRoom : 'default';
+                  });
+                  _fetchEntries();
+                }
+              },
+              child: const Text('Save & Connect'),
             ),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Enter the address of the Tampal Desktop server on your Wi-Fi network:',
-              style: TextStyle(
-                color: isDark ? const Color(0xFF94A3B8) : AppTheme.lightTextSecondary,
-                fontSize: 13,
-                height: 1.4,
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _serverUrlController,
-              decoration: const InputDecoration(
-                labelText: 'Server Address',
-                hintText: 'http://localhost:42881 or http://192.168.1.X:42881',
-                prefixIcon: Icon(Icons.link_rounded, color: Color(0xFF94A3B8)),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Check your Mac or PC Tampal app under "Web Dashboard" to find your active Wi-Fi address.',
-              style: TextStyle(
-                color: isDark ? const Color(0xFF64748B) : AppTheme.lightTextMuted,
-                fontSize: 11,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: isDark ? const Color(0xFF94A3B8) : AppTheme.lightTextSecondary),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final newUrl = _serverUrlController.text.trim();
-              if (newUrl.isNotEmpty) {
-                Navigator.pop(ctx);
-                setState(() {
-                  _serverUrl = newUrl.endsWith('/') ? newUrl.substring(0, newUrl.length - 1) : newUrl;
-                });
-                _fetchEntries();
-              }
-            },
-            child: const Text('Connect & Sync'),
-          ),
-        ],
       ),
     );
   }
@@ -401,8 +478,8 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
                         : EmptyStateView(
                             title: _searchQuery.isNotEmpty ? 'No matching entries' : 'No clipboard history',
                             message: _isConnected
-                                ? 'Copies from any connected device will sync automatically.'
-                                : 'Ensure Tampal desktop app is running on your Mac/PC.',
+                                ? 'Type or paste above to sync across all your web and native devices.'
+                                : 'Ensure sync server is connected or configured.',
                             icon: Icons.content_paste_off_rounded,
                             actionLabel: _isConnected ? null : 'Configure Hub',
                             onAction: _isConnected ? null : _showServerConfigDialog,
@@ -461,17 +538,48 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Tampal',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? AppTheme.textPrimary : AppTheme.lightTextPrimary,
-                  letterSpacing: -0.2,
-                ),
+              Row(
+                children: [
+                  Text(
+                    'Tampal',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? AppTheme.textPrimary : AppTheme.lightTextPrimary,
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  InkWell(
+                    onTap: _showServerConfigDialog,
+                    borderRadius: BorderRadius.circular(4),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF1E222E) : const Color(0xFFE2E8F0),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.tag_rounded, size: 11, color: isDark ? AppTheme.accentColor : AppTheme.primaryColor),
+                          const SizedBox(width: 2),
+                          Text(
+                            _currentRoom,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? AppTheme.accentColor : AppTheme.primaryColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
               Text(
-                'Local Clipboard Network',
+                'Universal Clipboard Sync',
                 style: TextStyle(
                   fontSize: 12,
                   color: isDark ? AppTheme.textSecondary : AppTheme.lightTextSecondary,
@@ -515,7 +623,7 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
               color: isDark ? AppTheme.textSecondary : AppTheme.lightTextSecondary,
               size: 19,
             ),
-            tooltip: 'Hub settings',
+            tooltip: 'Connection settings',
             onPressed: _showServerConfigDialog,
           ),
         ],
@@ -546,7 +654,7 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
           Expanded(
             child: Text(
               _isConnected
-                  ? 'Connected to Hub ($_serverUrl) • ${_entries.length} items synced'
+                  ? 'Active Sync (Room: $_currentRoom) • ${_entries.length} items synced'
                   : (_errorMessage ?? 'Connecting to $_serverUrl...'),
               style: TextStyle(
                 fontSize: 12,
@@ -566,7 +674,7 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
             ),
             onPressed: _showServerConfigDialog,
             child: Text(
-              'Configure',
+              'Change Room / Server',
               style: TextStyle(
                 fontSize: 12,
                 color: isDark ? AppTheme.textSecondary : AppTheme.lightTextSecondary,
@@ -600,7 +708,7 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
               color: isDark ? AppTheme.textPrimary : AppTheme.lightTextPrimary,
             ),
             decoration: InputDecoration(
-              hintText: 'Type or paste to broadcast across your devices...',
+              hintText: 'Type or paste to broadcast across all connected browsers & devices...',
               hintStyle: TextStyle(
                 color: isDark ? AppTheme.textMuted : AppTheme.lightTextMuted,
                 fontSize: 13,
@@ -798,8 +906,6 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
                       color: isDark ? AppTheme.textSecondary : AppTheme.lightTextSecondary,
                     ),
                     padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    tooltip: 'Search',
                     onPressed: () => setState(() => _isSearching = true),
                   ),
           ),
@@ -813,21 +919,16 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
     return InkWell(
       onTap: () => setState(() => _currentFilter = category),
       borderRadius: BorderRadius.circular(4),
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
           color: isSelected
-              ? (isDark ? AppTheme.darkCard : Colors.white)
+              ? (isDark ? const Color(0xFF1E222E) : Colors.white)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(4),
           boxShadow: isSelected && !isDark
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 2,
-                    offset: const Offset(0, 1),
-                  ),
-                ]
+              ? [const BoxShadow(color: Color(0x0F000000), blurRadius: 2, offset: Offset(0, 1))]
               : null,
         ),
         child: Row(
@@ -843,15 +944,24 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
                     : (isDark ? AppTheme.textSecondary : AppTheme.lightTextSecondary),
               ),
             ),
-            const SizedBox(width: 5),
-            Text(
-              count,
-              style: TextStyle(
-                fontSize: 10.5,
-                fontWeight: FontWeight.w500,
+            const SizedBox(width: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              decoration: BoxDecoration(
                 color: isSelected
-                    ? (isDark ? AppTheme.textSecondary : AppTheme.lightTextSecondary)
-                    : (isDark ? AppTheme.textMuted : AppTheme.lightTextMuted),
+                    ? (isDark ? const Color(0xFF2B3040) : const Color(0xFFE5E7EB))
+                    : (isDark ? const Color(0xFF151821) : const Color(0xFFF3F4F6)),
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: Text(
+                count,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontFamily: 'monospace',
+                  color: isSelected
+                      ? (isDark ? AppTheme.accentColor : AppTheme.primaryColor)
+                      : (isDark ? AppTheme.textMuted : AppTheme.lightTextMuted),
+                ),
               ),
             ),
           ],
