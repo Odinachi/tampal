@@ -1,13 +1,3 @@
-// In-memory global store for serverless instances (shared per container)
-globalThis._tampalStore = globalThis._tampalStore || new Map();
-
-function getRoomEntries(room = 'default') {
-  if (!globalThis._tampalStore.has(room)) {
-    globalThis._tampalStore.set(room, []);
-  }
-  return globalThis._tampalStore.get(room);
-}
-
 function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
@@ -38,27 +28,36 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Content cannot be empty' });
     }
 
-    const room = body?.room || req.query.room || 'default';
-    const entries = getRoomEntries(room);
+    const rawRoom = body?.room || req.query.room || 'default';
+    // Clean room name for topic
+    const cleanRoom = rawRoom.replace(/[^a-zA-Z0-9_-]/g, '_') || 'default';
+    const topic = `tampal_sync_${cleanRoom}`;
 
     const now = new Date().toISOString();
     const entry = {
-      id: body?.id || `web-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      device_id: body?.device_id || body?.deviceId || 'web-browser',
+      id: body?.id || `entry-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      device_id: body?.device_id || body?.deviceId || 'web-device',
       content_type: body?.content_type || body?.contentType || 'text',
       content: content,
       timestamp: body?.timestamp || now,
       created_at: body?.created_at || now,
+      room: rawRoom,
     };
 
-    // Prepend new entry
-    entries.unshift(entry);
-
-    // Keep max 100 entries per room
-    if (entries.length > 100) {
-      entries.length = 100;
+    // Publish to persistent global cloud broker
+    try {
+      await fetch(`https://ntfy.sh/${topic}`, {
+        method: 'POST',
+        headers: {
+          'Title': 'Tampal Sync',
+          'Priority': '3',
+          'Tags': 'clipboard',
+        },
+        body: JSON.stringify(entry),
+      });
+    } catch (e) {
+      console.error('[API Send] Error broadcasting to cloud broker:', e);
     }
-    globalThis._tampalStore.set(room, entries);
 
     return res.status(200).json({ status: 'ok', entry });
   } catch (err) {

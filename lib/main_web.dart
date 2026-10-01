@@ -109,49 +109,80 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
     super.dispose();
   }
 
+  String _cleanRoomName() {
+    return _currentRoom.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+  }
+
   Future<void> _fetchEntries({bool silent = false}) async {
     if (!silent) {
       setState(() => _isLoading = true);
     }
 
+    final cleanRoom = _cleanRoomName();
+    List<ClipboardEntry> loaded = [];
+    bool fetchSuccess = false;
+
+    // 1. Try fetching from configured Serverless/Hub API
     try {
       final queryParam = _searchQuery.isNotEmpty ? '&q=${Uri.encodeComponent(_searchQuery)}' : '';
       final roomParam = '?room=${Uri.encodeComponent(_currentRoom)}';
       final uri = Uri.parse('$_serverUrl/api/entries$roomParam$queryParam');
-      final res = await http.get(uri).timeout(const Duration(seconds: 4));
+      final res = await http.get(uri).timeout(const Duration(seconds: 3));
 
       if (res.statusCode == 200) {
         final List<dynamic> jsonList = jsonDecode(res.body) as List<dynamic>;
-        final loaded = jsonList
+        loaded = jsonList
             .map((e) => ClipboardEntry.fromSyncJson(e as Map<String, dynamic>))
             .toList();
+        fetchSuccess = true;
+      }
+    } catch (_) {
+      // Fallback to direct cloud broker
+    }
 
-        if (mounted) {
-          setState(() {
-            _entries = loaded;
-            _isConnected = true;
-            _errorMessage = null;
-          });
+    // 2. If API returned empty or failed, fetch directly from global cloud broker
+    if (!fetchSuccess || loaded.isEmpty) {
+      try {
+        final brokerUri = Uri.parse('https://ntfy.sh/tampal_sync_$cleanRoom/json?poll=1&since=24h');
+        final res = await http.get(brokerUri).timeout(const Duration(seconds: 4));
+        if (res.statusCode == 200) {
+          final lines = res.body.split('\n').where((l) => l.trim().isNotEmpty);
+          final Map<String, ClipboardEntry> entryMap = {};
+          for (final line in lines) {
+            try {
+              final parsed = jsonDecode(line) as Map<String, dynamic>;
+              if (parsed['event'] == 'message' && parsed['message'] != null) {
+                final messageJson = jsonDecode(parsed['message'] as String) as Map<String, dynamic>;
+                final entry = ClipboardEntry.fromSyncJson(messageJson);
+                entryMap[entry.id] = entry;
+              }
+            } catch (_) {}
+          }
+          if (entryMap.isNotEmpty) {
+            loaded = entryMap.values.toList();
+            loaded.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+            if (_searchQuery.isNotEmpty) {
+              final q = _searchQuery.toLowerCase();
+              loaded = loaded.where((e) => e.content.toLowerCase().contains(q)).toList();
+            }
+          }
+          fetchSuccess = true;
         }
-      } else {
-        if (mounted) {
-          setState(() {
-            _isConnected = false;
-            _errorMessage = 'Server responded with HTTP ${res.statusCode}';
-          });
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
+      } catch (_) {}
+    }
+
+    if (mounted) {
+      setState(() {
+        if (fetchSuccess) {
+          _entries = loaded;
+          _isConnected = true;
+          _errorMessage = null;
+        } else {
           _isConnected = false;
-          _errorMessage = 'Sync server unreachable at $_serverUrl';
-        });
-      }
-    } finally {
-      if (!silent && mounted) {
-        setState(() => _isLoading = false);
-      }
+          _errorMessage = 'Connecting to Sync Network...';
+        }
+        if (!silent) _isLoading = false;
+      });
     }
   }
 
@@ -161,73 +192,102 @@ class _WebHomeScreenState extends ConsumerState<WebHomeScreen> with SingleTicker
 
     setState(() => _isSending = true);
 
+    final cleanRoom = _cleanRoomName();
+    final now = DateTime.now();
+    final entry = ClipboardEntry(
+      id: 'entry-${now.millisecondsSinceEpoch}-${_deviceId.hashCode.abs() % 10000}',
+      deviceId: _deviceId,
+      contentType: 'text',
+      content: text,
+      createdAt: now,
+    );
+
+    bool sentSuccessfully = false;
+
+    // 1. Post to Serverless/Desktop API
     try {
       final uri = Uri.parse('$_serverUrl/api/send');
       final res = await http.post(
         uri,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
+          'id': entry.id,
           'content': text,
           'room': _currentRoom,
           'deviceId': _deviceId,
           'contentType': 'text',
+          'timestamp': now.toIso8601String(),
         }),
+      ).timeout(const Duration(seconds: 3));
+
+      if (res.statusCode == 200) {
+        sentSuccessfully = true;
+      }
+    } catch (_) {}
+
+    // 2. Also publish directly to global cloud broker
+    try {
+      final brokerUri = Uri.parse('https://ntfy.sh/tampal_sync_$cleanRoom');
+      final res = await http.post(
+        brokerUri,
+        headers: {
+          'Title': 'Tampal Sync',
+          'Priority': '3',
+          'Tags': 'clipboard',
+        },
+        body: jsonEncode(entry.toSyncJson()),
       ).timeout(const Duration(seconds: 4));
 
       if (res.statusCode == 200) {
+        sentSuccessfully = true;
+      }
+    } catch (_) {}
+
+    if (mounted) {
+      setState(() => _isSending = false);
+      if (sentSuccessfully) {
         _composerController.clear();
         await Clipboard.setData(ClipboardData(text: text));
-        await _fetchEntries(silent: true);
+        if (!mounted) return;
+        // Add optimistically to feed
+        setState(() {
+          _entries.removeWhere((e) => e.id == entry.id);
+          _entries.insert(0, entry);
+          _isConnected = true;
+        });
 
-        if (mounted) {
-          final isDark = Theme.of(context).brightness == Brightness.dark;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              backgroundColor: isDark ? AppTheme.surfaceDark : Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: const BorderSide(color: AppTheme.successColor),
-              ),
-              content: Row(
-                children: [
-                  const Icon(Icons.check_circle_rounded, color: AppTheme.successColor, size: 20),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Pushed to all devices: "${text.length > 30 ? '${text.substring(0, 30)}...' : text}"',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? AppTheme.textPrimary : AppTheme.lightTextPrimary,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              backgroundColor: AppTheme.errorColor,
-              content: Text('Failed to push text (HTTP ${res.statusCode})'),
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            backgroundColor: AppTheme.errorColor,
-            content: Text('Connection error: $e'),
+            backgroundColor: isDark ? AppTheme.surfaceDark : Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: const BorderSide(color: AppTheme.successColor),
+            ),
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle_rounded, color: AppTheme.successColor, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Broadcasted to all devices in Room "$_currentRoom": "${text.length > 30 ? '${text.substring(0, 30)}...' : text}"',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? AppTheme.textPrimary : AppTheme.lightTextPrimary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isSending = false);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            backgroundColor: AppTheme.errorColor,
+            content: Text('Failed to broadcast. Please check your internet connection.'),
+          ),
+        );
       }
     }
   }

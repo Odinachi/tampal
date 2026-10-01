@@ -1,13 +1,3 @@
-// In-memory global store for serverless instances (shared per container)
-globalThis._tampalStore = globalThis._tampalStore || new Map();
-
-function getRoomEntries(room = 'default') {
-  if (!globalThis._tampalStore.has(room)) {
-    globalThis._tampalStore.set(room, []);
-  }
-  return globalThis._tampalStore.get(room);
-}
-
 function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
@@ -21,26 +11,54 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  const room = req.query.room || 'default';
-  let entries = getRoomEntries(room);
+  const rawRoom = req.query.room || 'default';
+  const cleanRoom = rawRoom.replace(/[^a-zA-Z0-9_-]/g, '_') || 'default';
+  const topic = `tampal_sync_${cleanRoom}`;
 
-  // DELETE /api/entries?id=xyz
-  if (req.method === 'DELETE' || req.query.action === 'delete') {
-    const id = req.query.id || req.body?.id;
-    if (id) {
-      entries = entries.filter((e) => e.id !== id);
-      globalThis._tampalStore.set(room, entries);
-      return res.status(200).json({ status: 'deleted', id });
-    }
-  }
-
-  // GET /api/entries?q=...
+  // GET /api/entries?room=...&q=...
   if (req.method === 'GET') {
     const q = (req.query.q || '').toLowerCase().trim();
-    let result = entries;
-    if (q) {
-      result = result.where ? result : result.filter((e) => e.content && e.content.toLowerCase().includes(q));
+    const entriesMap = new Map();
+
+    try {
+      const response = await fetch(`https://ntfy.sh/${topic}/json?poll=1&since=24h`);
+      if (response.ok) {
+        const text = await response.text();
+        const lines = text.split('\n').filter(Boolean);
+
+        for (const line of lines) {
+          try {
+            const data = JSON.parse(line);
+            if (data.event === 'message' && data.message) {
+              const parsedEntry = JSON.parse(data.message);
+              if (parsedEntry && parsedEntry.id && parsedEntry.content) {
+                // Keep the most recent version of this entry ID
+                entriesMap.set(parsedEntry.id, parsedEntry);
+              }
+            }
+          } catch (_) {
+            // Ignore non-json lines
+          }
+        }
+      }
+    } catch (e) {
+      console.error('[API Entries] Error fetching from cloud broker:', e);
     }
+
+    let result = Array.from(entriesMap.values());
+
+    // Sort newest first
+    result.sort((a, b) => {
+      const timeA = new Date(a.timestamp || a.created_at || 0).getTime();
+      const timeB = new Date(b.timestamp || b.created_at || 0).getTime();
+      return timeB - timeA;
+    });
+
+    // Apply search filter if present
+    if (q) {
+      result = result.filter((e) => e.content && e.content.toLowerCase().includes(q));
+    }
+
     return res.status(200).json(result);
   }
 
